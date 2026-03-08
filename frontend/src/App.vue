@@ -11,14 +11,14 @@ import {
   Database
 } from 'lucide-vue-next';
 import { dockerApi } from './api';
+import Dashboard from './components/Dashboard.vue';
 import ContainerList from './components/ContainerList.vue';
 import ImageList from './components/ImageList.vue';
 import VolumeList from './components/VolumeList.vue';
 import NetworkList from './components/NetworkList.vue';
 
-const activeTab = ref('containers');
+const activeTab = ref('dashboard');
 const systemInfo = ref<any>(null);
-const containers = ref<any[]>([]);
 
 const tabs = [
   { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
@@ -32,8 +32,6 @@ const fetchStats = async () => {
   try {
     const { data: info } = await dockerApi.getSystemInfo();
     systemInfo.value = info;
-    const { data: containerList } = await dockerApi.getContainers();
-    containers.value = containerList;
   } catch (err) {
     console.error('Failed to fetch stats:', err);
   }
@@ -41,7 +39,7 @@ const fetchStats = async () => {
 
 onMounted(() => {
   fetchStats();
-  setInterval(fetchStats, 5000);
+  setInterval(fetchStats, 10000); // System info updates less frequently
 });
 </script>
 
@@ -79,7 +77,10 @@ onMounted(() => {
     <!-- Main Content -->
     <main class="main-content">
       <header class="content-header">
-        <h1>{{tabs.find(t => t.id === activeTab)?.name}}</h1>
+        <div class="title-group">
+          <h1>{{tabs.find(t => t.id === activeTab)?.name}}</h1>
+          <p class="subtitle" v-if="activeTab === 'dashboard'">Real-time system health and resource metrics</p>
+        </div>
         <div class="header-actions">
           <div class="status-badge" v-if="systemInfo">
             <span class="pulse"></span>
@@ -89,35 +90,10 @@ onMounted(() => {
       </header>
 
       <section class="content-area animate-fade-in">
-        <!-- Dashboard overflow -->
-        <div v-if="activeTab === 'dashboard'" class="dashboard-grid">
-          <div class="stat-card glass-panel">
-            <div class="card-header">
-              <Container :size="20" class="icon-indigo" />
-              <h3>Containers</h3>
-            </div>
-            <div class="value">{{ systemInfo?.ContainersRunning || 0 }} / {{ systemInfo?.Containers || 0 }}</div>
-            <div class="label">Running / Total</div>
-          </div>
-          <div class="stat-card glass-panel">
-            <div class="card-header">
-              <Box :size="20" class="icon-indigo" />
-              <h3>Images</h3>
-            </div>
-            <div class="value">{{ systemInfo?.Images || 0 }}</div>
-            <div class="label">Total Images</div>
-          </div>
-          <div class="stat-card glass-panel">
-            <div class="card-header">
-              <Cpu :size="20" class="icon-indigo" />
-              <h3>System</h3>
-            </div>
-            <div class="value">{{ systemInfo?.NCPU || 0 }}</div>
-            <div class="label">Core Count</div>
-          </div>
-        </div>
+        <!-- Dashboard Component -->
+        <Dashboard v-if="activeTab === 'dashboard'" :system-info="systemInfo" />
 
-        <!-- Components -->
+        <!-- Resource Components -->
         <ContainerList v-else-if="activeTab === 'containers'" />
         <ImageList v-else-if="activeTab === 'images'" />
         <VolumeList v-else-if="activeTab === 'volumes'" />
@@ -231,13 +207,20 @@ onMounted(() => {
 .content-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 32px;
 }
 
-.content-header h1 {
+.title-group h1 {
   font-size: 2rem;
   font-weight: 700;
+  margin: 0;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-top: 4px;
 }
 
 .status-badge {
@@ -258,10 +241,10 @@ onMounted(() => {
   background: var(--success);
   border-radius: 50%;
   box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
-  animation: pulse 2s infinite;
+  animation: pulse-green 2s infinite;
 }
 
-@keyframes pulse {
+@keyframes pulse-green {
   0% {
     box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
   }
@@ -277,53 +260,5 @@ onMounted(() => {
 
 .content-area {
   flex-grow: 1;
-}
-
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 24px;
-}
-
-.stat-card {
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.stat-card h3 {
-  font-size: 1rem;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.stat-card .value {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: var(--text-main);
-}
-
-.stat-card .label {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.icon-indigo {
-  color: var(--primary);
-}
-
-.stat-card h3 {
-  font-size: 1rem;
-  color: var(--text-muted);
-  font-weight: 500;
-  margin: 0;
 }
 </style>
