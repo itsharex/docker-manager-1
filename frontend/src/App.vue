@@ -6,6 +6,7 @@ import {
   Box,
   HardDrive,
   Network,
+  Layers,
   Activity,
   Cpu,
   Database
@@ -16,9 +17,11 @@ import ContainerList from './components/ContainerList.vue';
 import ImageList from './components/ImageList.vue';
 import VolumeList from './components/VolumeList.vue';
 import NetworkList from './components/NetworkList.vue';
+import ComposeList from './components/ComposeList.vue';
 
 const activeTab = ref('dashboard');
 const systemInfo = ref<any>(null);
+const diskUsage = ref<{ totalBytes: number; usedBytes: number } | null>(null);
 
 const tabs = [
   { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
@@ -26,12 +29,17 @@ const tabs = [
   { id: 'images', name: 'Images', icon: Box },
   { id: 'volumes', name: 'Volumes', icon: HardDrive },
   { id: 'networks', name: 'Networks', icon: Network },
+  { id: 'compose', name: 'Compose', icon: Layers },
 ];
 
 const fetchStats = async () => {
   try {
-    const { data: info } = await dockerApi.getSystemInfo();
+    const [{ data: info }, { data: disk }] = await Promise.all([
+      dockerApi.getSystemInfo(),
+      dockerApi.getDiskUsage(),
+    ]);
     systemInfo.value = info;
+    diskUsage.value = disk;
   } catch (err) {
     console.error('Failed to fetch stats:', err);
   }
@@ -91,13 +99,14 @@ onMounted(() => {
 
       <section class="content-area animate-fade-in">
         <!-- Dashboard Component -->
-        <Dashboard v-if="activeTab === 'dashboard'" :system-info="systemInfo" />
+        <Dashboard v-if="activeTab === 'dashboard'" :system-info="systemInfo" :disk-usage="diskUsage" />
 
         <!-- Resource Components -->
         <ContainerList v-else-if="activeTab === 'containers'" />
         <ImageList v-else-if="activeTab === 'images'" />
         <VolumeList v-else-if="activeTab === 'volumes'" />
         <NetworkList v-else-if="activeTab === 'networks'" />
+        <ComposeList v-else-if="activeTab === 'compose'" />
       </section>
     </main>
   </div>

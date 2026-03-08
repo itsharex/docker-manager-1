@@ -205,21 +205,29 @@ onUnmounted(() => {
                         <td class="time-cell">{{ dayjs.unix(container.Created).fromNow() }}</td>
                         <td class="actions-cell">
                             <div class="action-group">
-                                <button v-if="!container.Status.includes('Up')" class="btn-icon btn-ghost" title="Start"
+                                <button
+                                    v-if="!container.Status.includes('Up')"
+                                    class="action-btn action-start"
+                                    title="Start"
                                     @click="handleAction('start', container.Id)">
                                     <Play :size="16" />
                                 </button>
-                                <button v-else class="btn-icon btn-ghost" title="Stop"
+                                <button
+                                    v-else
+                                    class="action-btn action-stop"
+                                    title="Stop"
                                     @click="handleAction('stop', container.Id)">
                                     <Square :size="16" />
                                 </button>
-                                <button class="btn-icon btn-ghost" title="Logs" @click="openLogs(container)">
+                                <button class="action-btn action-neutral" title="Logs" @click="openLogs(container)">
                                     <FileText :size="16" />
                                 </button>
-                                <button class="btn-icon btn-ghost" title="Terminal" @click="openTerminal(container)">
+                                <button class="action-btn action-neutral" title="Terminal" @click="openTerminal(container)">
                                     <Terminal :size="16" />
                                 </button>
-                                <button class="btn-icon btn-ghost text-danger" title="Remove"
+                                <button
+                                    class="action-btn action-danger"
+                                    title="Remove"
                                     @click="handleAction('remove', container.Id)">
                                     <Trash2 :size="16" />
                                 </button>
@@ -386,7 +394,66 @@ onUnmounted(() => {
 
 .action-group {
     display: flex;
-    gap: 4px;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.action-btn {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.action-btn:hover {
+    transform: translateY(-1px);
+    color: var(--text-main);
+}
+
+.action-neutral:hover {
+    background: rgba(99, 102, 241, 0.12);
+    border-color: rgba(99, 102, 241, 0.45);
+}
+
+.action-start {
+    color: #6ee7b7;
+    border-color: rgba(16, 185, 129, 0.32);
+    background: rgba(16, 185, 129, 0.08);
+}
+
+.action-start:hover {
+    background: rgba(16, 185, 129, 0.16);
+    border-color: rgba(16, 185, 129, 0.55);
+}
+
+.action-stop {
+    color: #fcd34d;
+    border-color: rgba(245, 158, 11, 0.32);
+    background: rgba(245, 158, 11, 0.08);
+}
+
+.action-stop:hover {
+    background: rgba(245, 158, 11, 0.16);
+    border-color: rgba(245, 158, 11, 0.55);
+}
+
+.action-danger {
+    color: #fda4af;
+    border-color: rgba(239, 68, 68, 0.32);
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.action-danger:hover {
+    background: rgba(239, 68, 68, 0.16);
+    border-color: rgba(239, 68, 68, 0.55);
 }
 
 .actions-cell {

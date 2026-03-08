@@ -32,12 +32,123 @@ ChartJS.register(
 
 const props = defineProps<{
     systemInfo: any;
+    diskUsage?: { totalBytes?: number; usedBytes?: number } | null;
 }>();
 
 const cpuData = ref<number[]>([]);
 const memData = ref<number[]>([]);
 const labels = ref<string[]>([]);
 const maxDataPoints = 20;
+
+const toNumber = (value: unknown) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const parseBytes = (raw: string | undefined) => {
+    if (!raw) return 0;
+    const normalized = raw.trim().replace(/,/g, '');
+    const match = normalized.match(/^([\d.]+)\s*([kmgtp]?i?b?)?$/i);
+    if (!match) return 0;
+
+    const value = toNumber(match[1]);
+    const unit = (match[2] || 'b').toLowerCase();
+    const multipliers: Record<string, number> = {
+        b: 1,
+        kb: 1000,
+        mb: 1000 ** 2,
+        gb: 1000 ** 3,
+        tb: 1000 ** 4,
+        pb: 1000 ** 5,
+        kib: 1024,
+        mib: 1024 ** 2,
+        gib: 1024 ** 3,
+        tib: 1024 ** 4,
+        pib: 1024 ** 5
+    };
+
+    return value * (multipliers[unit] || 1);
+};
+
+const formatBytes = (bytes: number) => {
+    if (!bytes || bytes < 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+    let value = bytes;
+    let idx = 0;
+    while (value >= 1024 && idx < units.length - 1) {
+        value /= 1024;
+        idx++;
+    }
+    return `${value.toFixed(value >= 100 ? 0 : value >= 10 ? 1 : 2)} ${units[idx]}`;
+};
+
+const getDriverStatusValue = (key: string) => {
+    const status = props.systemInfo?.DriverStatus;
+    if (!Array.isArray(status)) return '';
+    const pair = status.find((entry: unknown) => Array.isArray(entry) && String(entry[0]) === key) as string[] | undefined;
+    return pair?.[1] || '';
+};
+
+const cpuPercent = computed(() => toNumber((cpuData.value[cpuData.value.length - 1] ?? 0).toFixed(2)));
+const memPercent = computed(() => toNumber((memData.value[memData.value.length - 1] ?? 0).toFixed(2)));
+const ncpu = computed(() => Math.max(1, toNumber(props.systemInfo?.NCPU || 1)));
+const loadAvg = computed(() => toNumber(((cpuPercent.value / 100) * ncpu.value).toFixed(2)));
+const loadPercent = computed(() => Math.min(100, toNumber(((loadAvg.value / ncpu.value) * 100).toFixed(2))));
+
+const memTotalBytes = computed(() => toNumber(props.systemInfo?.MemTotal || 0));
+const memUsedBytes = computed(() => toNumber((memTotalBytes.value * (memPercent.value / 100)).toFixed(0)));
+
+const diskUsedBytes = computed(() => {
+    const fromApi = toNumber(props.diskUsage?.usedBytes || 0);
+    if (fromApi > 0) return fromApi;
+    return parseBytes(getDriverStatusValue('Data Space Used'));
+});
+const diskTotalBytes = computed(() => {
+    const fromApi = toNumber(props.diskUsage?.totalBytes || 0);
+    if (fromApi > 0) return fromApi;
+    return parseBytes(getDriverStatusValue('Data Space Total'));
+});
+const diskPercent = computed(() => {
+    if (!diskTotalBytes.value) return 0;
+    return Math.min(100, toNumber(((diskUsedBytes.value / diskTotalBytes.value) * 100).toFixed(2)));
+});
+
+const gauges = computed(() => ([
+    {
+        key: 'load',
+        label: 'Load',
+        percent: loadPercent.value,
+        value: `${loadAvg.value}`,
+        unit: '',
+        detail: `(${loadAvg.value} / ${ncpu.value}) cores`,
+    },
+    {
+        key: 'cpu',
+        label: 'CPU',
+        percent: cpuPercent.value,
+        value: `${cpuPercent.value}`,
+        unit: '%',
+        detail: `${ncpu.value} cores`,
+    },
+    {
+        key: 'memory',
+        label: 'Memory',
+        percent: memPercent.value,
+        value: `${memPercent.value}`,
+        unit: '%',
+        detail: `${formatBytes(memUsedBytes.value)} / ${formatBytes(memTotalBytes.value)}`,
+    },
+    {
+        key: 'disk',
+        label: 'Disk',
+        percent: diskPercent.value,
+        value: diskTotalBytes.value > 0 ? `${diskPercent.value.toFixed(2)}` : 'N/A',
+        unit: diskTotalBytes.value > 0 ? '%' : '',
+        detail: diskTotalBytes.value > 0
+            ? `${formatBytes(diskUsedBytes.value)} / ${formatBytes(diskTotalBytes.value)}`
+            : `Used: ${formatBytes(diskUsedBytes.value)}`,
+    }
+]));
 
 const chartData = computed(() => ({
     labels: [...labels.value],
@@ -116,6 +227,7 @@ const updateCharts = () => {
 };
 
 onMounted(() => {
+    updateCharts();
     interval = setInterval(updateCharts, 2000);
 });
 
@@ -176,6 +288,23 @@ onUnmounted(() => {
         </div>
 
         <div class="charts-section">
+            <div class="status-card glass-panel">
+                <div class="status-title">Status</div>
+                <div class="gauge-grid">
+                    <div v-for="g in gauges" :key="g.key" class="gauge-item">
+                        <div class="gauge-ring" :style="{ '--p': `${g.percent}` }">
+                            <div class="gauge-inner">
+                                <div class="gauge-value">
+                                    {{ g.value }}<span class="unit">{{ g.unit }}</span>
+                                </div>
+                                <div class="gauge-label">{{ g.label }}</div>
+                            </div>
+                        </div>
+                        <div class="gauge-detail">{{ g.detail }}</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="chart-card glass-panel">
                 <div class="chart-header">
                     <div class="title">
@@ -266,6 +395,83 @@ onUnmounted(() => {
 .charts-section {
     display: grid;
     grid-template-columns: 1fr;
+    gap: 24px;
+}
+
+.status-card {
+    padding: 20px 24px;
+}
+
+.status-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.05rem;
+    margin-bottom: 16px;
+    color: var(--text-main);
+}
+
+.gauge-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 18px;
+}
+
+.gauge-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.gauge-ring {
+    --p: 0;
+    width: 132px;
+    height: 132px;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at center, rgba(36, 43, 62, 1) 58%, transparent 60%),
+        conic-gradient(#4a96ff calc(var(--p) * 1%), rgba(148, 163, 184, 0.18) 0);
+    padding: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gauge-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: #343b50;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+}
+
+.gauge-value {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    line-height: 1;
+}
+
+.gauge-value .unit {
+    font-size: 0.95rem;
+    margin-left: 2px;
+    color: #94a3b8;
+}
+
+.gauge-label {
+    font-size: 0.95rem;
+    color: #cbd5e1;
+}
+
+.gauge-detail {
+    color: #93c5fd;
+    font-size: 0.85rem;
+    text-align: center;
 }
 
 .chart-card {

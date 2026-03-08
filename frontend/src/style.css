@@ -51,15 +51,16 @@ h4 {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 8px 14px;
   border-radius: 10px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  border: none;
-  font-size: 0.9rem;
+  transition: all 0.18s ease;
+  border: 1px solid var(--glass-border);
+  font-size: 0.85rem;
   color: var(--text-main);
   text-decoration: none;
+  line-height: 1;
 }
 
 .btn-primary {
@@ -74,20 +75,44 @@ h4 {
 }
 
 .btn-ghost {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.03);
   color: var(--text-muted);
 }
 
 .btn-ghost:hover {
-  background: var(--glass);
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.4);
   color: var(--text-main);
+  transform: translateY(-1px);
 }
 
 .btn-icon {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: 10px;
+}
+
+.btn-icon.btn-ghost {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.btn-icon.btn-ghost:hover {
+  background: rgba(99, 102, 241, 0.14);
+}
+
+.btn-icon.text-danger,
+.btn.text-danger {
+  color: #fda4af !important;
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.btn-icon.text-danger:hover,
+.btn.text-danger:hover {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fecaca !important;
 }
 
 /* Animations */

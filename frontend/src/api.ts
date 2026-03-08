@@ -26,6 +26,17 @@ export const dockerApi = {
 
   // System
   getSystemInfo: () => api.get('/info'),
+  getDiskUsage: () => api.get('/disk-usage'),
+
+  // Docker Compose
+  getComposeProjects: () => api.get('/compose/projects'),
+  startComposeProject: (name: string) => api.post(`/compose/projects/${encodeURIComponent(name)}/start`),
+  stopComposeProject: (name: string) => api.post(`/compose/projects/${encodeURIComponent(name)}/stop`),
+  restartComposeProject: (name: string) => api.post(`/compose/projects/${encodeURIComponent(name)}/restart`),
+  downComposeProject: (name: string) => api.delete(`/compose/projects/${encodeURIComponent(name)}/down`),
+  getComposeProjectLogs: (name: string, tail = 200) =>
+    api.get(`/compose/projects/${encodeURIComponent(name)}/logs?tail=${tail}`, { responseType: 'text' }),
+  getComposeProjectFiles: (name: string) => api.get(`/compose/projects/${encodeURIComponent(name)}/files`),
 };
 
 export const getWsUrl = (path: string) => {

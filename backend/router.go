@@ -32,6 +32,16 @@ func SetupRouter() *mux.Router {
 
 	// Stats routes
 	r.HandleFunc("/api/info", SystemInfoHandler).Methods("GET")
+	r.HandleFunc("/api/disk-usage", DiskUsageHandler).Methods("GET")
+
+	// Compose routes
+	r.HandleFunc("/api/compose/projects", ListComposeProjectsHandler).Methods("GET")
+	r.HandleFunc("/api/compose/projects/{name}/start", StartComposeProjectHandler).Methods("POST")
+	r.HandleFunc("/api/compose/projects/{name}/stop", StopComposeProjectHandler).Methods("POST")
+	r.HandleFunc("/api/compose/projects/{name}/restart", RestartComposeProjectHandler).Methods("POST")
+	r.HandleFunc("/api/compose/projects/{name}/down", DownComposeProjectHandler).Methods("DELETE")
+	r.HandleFunc("/api/compose/projects/{name}/logs", ComposeProjectLogsHandler).Methods("GET")
+	r.HandleFunc("/api/compose/projects/{name}/files", ComposeProjectFilesHandler).Methods("GET")
 
 	// WebSocket routes
 	r.HandleFunc("/ws/logs/{id}", ws.LogsHandler)
@@ -154,4 +164,83 @@ func SystemInfoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(info)
+}
+
+func DiskUsageHandler(w http.ResponseWriter, r *http.Request) {
+	usage, err := docker.GetDiskUsageSummary()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(usage)
+}
+
+func ListComposeProjectsHandler(w http.ResponseWriter, r *http.Request) {
+	projects, err := docker.ListComposeProjects()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(projects)
+}
+
+func StartComposeProjectHandler(w http.ResponseWriter, r *http.Request) {
+	name := mux.Vars(r)["name"]
+	if err := docker.StartComposeProject(name); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func StopComposeProjectHandler(w http.ResponseWriter, r *http.Request) {
+	name := mux.Vars(r)["name"]
+	if err := docker.StopComposeProject(name); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func RestartComposeProjectHandler(w http.ResponseWriter, r *http.Request) {
+	name := mux.Vars(r)["name"]
+	if err := docker.RestartComposeProject(name); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func DownComposeProjectHandler(w http.ResponseWriter, r *http.Request) {
+	name := mux.Vars(r)["name"]
+	if err := docker.DownComposeProject(name); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func ComposeProjectLogsHandler(w http.ResponseWriter, r *http.Request) {
+	name := mux.Vars(r)["name"]
+	tail := r.URL.Query().Get("tail")
+
+	logs, err := docker.GetComposeProjectLogs(name, tail)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(logs))
+}
+
+func ComposeProjectFilesHandler(w http.ResponseWriter, r *http.Request) {
+	name := mux.Vars(r)["name"]
+	files, err := docker.GetComposeProjectFiles(name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(files)
 }
