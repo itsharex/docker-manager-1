@@ -9,7 +9,7 @@ func ListContainers() ([]types.Container, error) {
 
 	containers, err := Cli.ContainerList(
 		Ctx(),
-		types.ContainerListOptions{All: true},
+		container.ListOptions{All: true},
 	)
 
 	return containers, err
@@ -20,7 +20,7 @@ func StartContainer(id string) error {
 	return Cli.ContainerStart(
 		Ctx(),
 		id,
-		types.ContainerStartOptions{},
+		container.StartOptions{},
 	)
 }
 
@@ -38,7 +38,7 @@ func RemoveContainer(id string) error {
 	return Cli.ContainerRemove(
 		Ctx(),
 		id,
-		types.ContainerRemoveOptions{
+		container.RemoveOptions{
 			Force: true,
 		},
 	)

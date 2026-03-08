@@ -1,13 +1,13 @@
 package docker
 
 import (
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/image"
 )
 
-func ListImages() ([]types.ImageSummary, error) {
+func ListImages() ([]image.Summary, error) {
 	return Cli.ImageList(
 		Ctx(),
-		types.ImageListOptions{All: true},
+		image.ListOptions{All: true},
 	)
 }
 
@@ -15,7 +15,7 @@ func RemoveImage(id string) error {
 	_, err := Cli.ImageRemove(
 		Ctx(),
 		id,
-		types.ImageRemoveOptions{Force: true},
+		image.RemoveOptions{Force: true},
 	)
 	return err
 }

@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"docker-ui/docker"
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/gorilla/mux"
 )
 
@@ -22,7 +22,7 @@ func LogsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	options := types.ContainerLogsOptions{
+	options := container.LogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 		Follow:     true,

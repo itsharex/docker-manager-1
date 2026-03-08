@@ -21,6 +21,7 @@ func TerminalHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
+	// In v26, ExecConfig and ExecStartCheck are in types
 	execConfig := types.ExecConfig{
 		AttachStdout: true,
 		AttachStderr: true,
