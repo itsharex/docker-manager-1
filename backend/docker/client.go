@@ -2,6 +2,8 @@ package docker
 
 import (
 	"context"
+	"fmt"
+
 	"github.com/docker/docker/client"
 )
 
@@ -19,6 +21,10 @@ func Init() error {
 	}
 
 	Cli = cli
+
+	if _, err := Cli.Ping(Ctx()); err != nil {
+		return fmt.Errorf("failed to connect Docker daemon (DOCKER_HOST=%q): %w", Cli.DaemonHost(), err)
+	}
 
 	return nil
 }
