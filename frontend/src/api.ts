@@ -21,6 +21,7 @@ export const dockerApi = {
   getContainers: () => api.get('/containers'),
   startContainer: (id: string) => api.post(`/containers/${id}/start`),
   stopContainer: (id: string) => api.post(`/containers/${id}/stop`),
+  restartContainer: (id: string) => api.post(`/containers/${id}/restart`),
   removeContainer: (id: string) => api.delete(`/containers/${id}/remove`),
   inspectContainer: (id: string) => api.get(`/containers/${id}/inspect`),
 

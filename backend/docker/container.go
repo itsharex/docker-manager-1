@@ -33,6 +33,15 @@ func StopContainer(id string) error {
 	)
 }
 
+func RestartContainer(id string) error {
+
+	return Cli.ContainerRestart(
+		Ctx(),
+		id,
+		container.StopOptions{},
+	)
+}
+
 func RemoveContainer(id string) error {
 
 	return Cli.ContainerRemove(

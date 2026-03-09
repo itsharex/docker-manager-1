@@ -15,6 +15,7 @@ func SetupRouter() *mux.Router {
 	r.HandleFunc("/api/containers", ListContainersHandler).Methods("GET")
 	r.HandleFunc("/api/containers/{id}/start", StartContainerHandler).Methods("POST")
 	r.HandleFunc("/api/containers/{id}/stop", StopContainerHandler).Methods("POST")
+	r.HandleFunc("/api/containers/{id}/restart", RestartContainerHandler).Methods("POST")
 	r.HandleFunc("/api/containers/{id}/remove", RemoveContainerHandler).Methods("DELETE")
 	r.HandleFunc("/api/containers/{id}/inspect", InspectContainerHandler).Methods("GET")
 
@@ -73,6 +74,16 @@ func StopContainerHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 	if err := docker.StopContainer(id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func RestartContainerHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+	if err := docker.RestartContainer(id); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

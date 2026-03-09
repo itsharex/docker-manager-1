@@ -121,6 +121,54 @@ const bulkDelete = async () => {
     }
 };
 
+const bulkStart = async () => {
+    if (selectedIds.value.length === 0) return;
+    const total = selectedIds.value.length;
+    let failed = 0;
+
+    for (const id of selectedIds.value) {
+        try {
+            await dockerApi.startContainer(id);
+        } catch (err) {
+            console.error(`Bulk start failed for ${id}:`, err);
+            failed += 1;
+        }
+    }
+
+    await fetchContainers();
+    if (failed === 0) {
+        feedback.success(`Started ${total} container(s) successfully.`);
+    } else if (failed === total) {
+        feedback.error('Bulk start failed for all selected containers.');
+    } else {
+        feedback.warning(`Started ${total - failed}/${total} container(s).`);
+    }
+};
+
+const bulkRestart = async () => {
+    if (selectedIds.value.length === 0) return;
+    const total = selectedIds.value.length;
+    let failed = 0;
+
+    for (const id of selectedIds.value) {
+        try {
+            await dockerApi.restartContainer(id);
+        } catch (err) {
+            console.error(`Bulk restart failed for ${id}:`, err);
+            failed += 1;
+        }
+    }
+
+    await fetchContainers();
+    if (failed === 0) {
+        feedback.success(`Restarted ${total} container(s) successfully.`);
+    } else if (failed === total) {
+        feedback.error('Bulk restart failed for all selected containers.');
+    } else {
+        feedback.warning(`Restarted ${total - failed}/${total} container(s).`);
+    }
+};
+
 const scrollToBottom = async () => {
     await nextTick();
     const el = logsEl.value;
@@ -332,9 +380,17 @@ watch(() => appSettings.general.autoRefreshMs, () => {
                 <input v-model="searchQuery" type="text" placeholder="Search containers..." />
             </div>
             <div class="toolbar-actions">
+                <button class="btn btn-ghost" :disabled="selectedCount === 0" @click="bulkStart">
+                    <Play :size="16" />
+                    Bulk Start
+                </button>
+                <button class="btn btn-ghost" :disabled="selectedCount === 0" @click="bulkRestart">
+                    <RefreshCw :size="16" />
+                    Bulk Restart
+                </button>
                 <button class="btn btn-ghost text-danger" :disabled="selectedCount === 0" @click="bulkDelete">
                     <Trash2 :size="16" />
-                    Bulk Delete ({{ selectedCount }})
+                    Bulk Delete
                 </button>
                 <button class="btn btn-ghost" @click="fetchContainers">
                     <RefreshCw :size="18" :class="{ 'animate-spin': loading }" />
@@ -343,17 +399,12 @@ watch(() => appSettings.general.autoRefreshMs, () => {
             </div>
         </div>
 
-        <div v-if="selectedCount > 0" class="selection-bar glass-panel">
-            {{ selectedCount }} selected
-            <button class="btn btn-ghost" @click="selectedIds = []">Clear</button>
-        </div>
-
         <div class="table-container glass-panel">
             <table class="docker-table">
                 <thead>
                     <tr>
                         <th class="check-col">
-                            <input type="checkbox" :checked="allPageSelected" @change="toggleSelectAllPage" />
+                            <input class="bulk-checkbox" type="checkbox" :checked="allPageSelected" @change="toggleSelectAllPage" />
                         </th>
                         <th>Name</th>
                         <th>Image</th>
@@ -366,7 +417,7 @@ watch(() => appSettings.general.autoRefreshMs, () => {
                 <tbody>
                     <tr v-for="container in paginatedContainers" :key="container.Id">
                         <td class="check-col">
-                            <input type="checkbox" :checked="selectedIds.includes(container.Id)" @change="toggleSelect(container.Id)" />
+                            <input class="bulk-checkbox" type="checkbox" :checked="selectedIds.includes(container.Id)" @change="toggleSelect(container.Id)" />
                         </td>
                         <td class="name-cell">
                             <div class="container-name">
@@ -484,14 +535,6 @@ watch(() => appSettings.general.autoRefreshMs, () => {
     gap: 8px;
 }
 
-.selection-bar {
-    padding: 8px 14px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    color: var(--text-muted);
-}
-
 .search-box {
     display: flex;
     align-items: center;
@@ -538,9 +581,26 @@ watch(() => appSettings.general.autoRefreshMs, () => {
 }
 
 .check-col {
-    width: 40px;
+    width: 56px;
     text-align: center !important;
-    padding: 12px !important;
+    padding: 10px !important;
+}
+
+.bulk-checkbox {
+    width: 22px;
+    height: 22px;
+    cursor: pointer;
+    accent-color: var(--primary);
+    border-radius: 6px;
+}
+
+.bulk-checkbox:hover {
+    filter: brightness(1.08);
+}
+
+.bulk-checkbox:focus-visible {
+    outline: 2px solid rgba(36, 150, 237, 0.55);
+    outline-offset: 2px;
 }
 
 .docker-table tr:last-child td {

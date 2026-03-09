@@ -129,7 +129,7 @@ onMounted(fetchImages);
             <table class="docker-table">
                 <thead>
                     <tr>
-                        <th class="check-col"><input type="checkbox" :checked="allPageSelected" @change="toggleSelectAllPage" /></th>
+                        <th class="check-col"><input class="bulk-checkbox" type="checkbox" :checked="allPageSelected" @change="toggleSelectAllPage" /></th>
                         <th>Repository:Tag</th>
                         <th>ID</th>
                         <th>Size</th>
@@ -139,7 +139,7 @@ onMounted(fetchImages);
                 </thead>
                 <tbody>
                     <tr v-for="image in paginatedImages" :key="image.Id">
-                        <td class="check-col"><input type="checkbox" :checked="selectedIds.includes(image.Id)" @change="toggleSelect(image.Id)" /></td>
+                        <td class="check-col"><input class="bulk-checkbox" type="checkbox" :checked="selectedIds.includes(image.Id)" @change="toggleSelect(image.Id)" /></td>
                         <td class="name-cell">{{ image.RepoTags?.[0] || '&lt;none&gt;:&lt;none&gt;' }}</td>
                         <td><code>{{ image.Id.substring(7, 19) }}</code></td>
                         <td>{{ formatSize(image.Size) }}</td>
@@ -185,7 +185,10 @@ onMounted(fetchImages);
 .docker-table { width: 100%; border-collapse: collapse; }
 .docker-table th { text-align: left; padding: 14px 20px; font-size: 0.86rem; color: var(--text-muted); border-bottom: 1px solid var(--glass-border); }
 .docker-table td { padding: 14px 20px; font-size: 0.88rem; border-bottom: 1px solid var(--glass-border); }
-.check-col { width: 40px; text-align: center !important; padding: 10px !important; }
+.check-col { width: 56px; text-align: center !important; padding: 10px !important; }
+.bulk-checkbox { width: 22px; height: 22px; cursor: pointer; accent-color: var(--primary); border-radius: 6px; }
+.bulk-checkbox:hover { filter: brightness(1.08); }
+.bulk-checkbox:focus-visible { outline: 2px solid rgba(36, 150, 237, 0.55); outline-offset: 2px; }
 .docker-table tr:last-child td { border-bottom: none; }
 .docker-table tr:hover { background: var(--glass); }
 .name-cell { font-weight: 600; word-break: break-all; }
