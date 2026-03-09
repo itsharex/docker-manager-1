@@ -50,6 +50,7 @@ const logsOutput = ref('');
 const logsTail = ref(300);
 const loadingLogs = ref(false);
 const logsPanel = ref<HTMLElement | null>(null);
+const serviceActionLoadingId = ref('');
 
 const fetchProjects = async () => {
     try {
@@ -122,6 +123,32 @@ const runAction = async (action: 'start' | 'stop' | 'restart' | 'down', projectN
         }
     } catch (err) {
         alert(`Compose action failed: ${err}`);
+    }
+};
+
+const runServiceAction = async (action: 'start' | 'stop' | 'restart', service: ComposeService) => {
+    if (!service?.id) return;
+    try {
+        serviceActionLoadingId.value = service.id;
+        if (action === 'start') {
+            await dockerApi.startContainer(service.id);
+        } else if (action === 'stop') {
+            await dockerApi.stopContainer(service.id);
+        } else {
+            if (service.state === 'running') {
+                await dockerApi.stopContainer(service.id);
+            }
+            await dockerApi.startContainer(service.id);
+        }
+
+        await fetchProjects();
+        if (selectedProjectName.value) {
+            await loadDetails(selectedProjectName.value);
+        }
+    } catch (err) {
+        alert(`Service action failed: ${err}`);
+    } finally {
+        serviceActionLoadingId.value = '';
     }
 };
 
@@ -225,10 +252,58 @@ onUnmounted(() => {
                     </div>
                 </div>
 
-                <div class="services">
-                    <div v-for="service in selectedProject.services" :key="service.id" class="service-pill">
-                        <span>{{ service.name }}</span>
-                        <span class="service-state" :class="getServiceClass(service.state)">{{ service.state }}</span>
+                <div class="services-panel">
+                    <div class="panel-head services-head">
+                        <h4>Services</h4>
+                        <span class="hint">{{ selectedProject.services.length }} container(s)</span>
+                    </div>
+                    <div class="services-table-wrap">
+                        <table class="services-table">
+                            <thead>
+                                <tr>
+                                    <th>Service</th>
+                                    <th>State</th>
+                                    <th>Image</th>
+                                    <th class="service-actions-col">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="service in selectedProject.services" :key="service.id">
+                                    <td>{{ service.name }}</td>
+                                    <td>
+                                        <span class="service-state" :class="getServiceClass(service.state)">
+                                            {{ service.state }}
+                                        </span>
+                                    </td>
+                                    <td><code>{{ service.image }}</code></td>
+                                    <td class="service-actions-col">
+                                        <div class="service-actions">
+                                            <button
+                                                class="btn btn-ghost compact-btn"
+                                                :disabled="serviceActionLoadingId === service.id || service.state === 'running'"
+                                                @click="runServiceAction('start', service)">
+                                                <Play :size="14" />
+                                                Start
+                                            </button>
+                                            <button
+                                                class="btn btn-ghost compact-btn"
+                                                :disabled="serviceActionLoadingId === service.id || service.state !== 'running'"
+                                                @click="runServiceAction('stop', service)">
+                                                <Square :size="14" />
+                                                Stop
+                                            </button>
+                                            <button
+                                                class="btn btn-ghost compact-btn"
+                                                :disabled="serviceActionLoadingId === service.id"
+                                                @click="runServiceAction('restart', service)">
+                                                <RotateCw :size="14" :class="{ 'animate-spin': serviceActionLoadingId === service.id }" />
+                                                Restart
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -275,12 +350,15 @@ onUnmounted(() => {
     display: grid;
     grid-template-columns: 320px 1fr;
     gap: 16px;
-    min-height: calc(100vh - 220px);
+    height: calc(100vh - 210px);
+    min-height: 0;
 }
 
 .left-col,
 .right-col {
     padding: 14px;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .left-col {
@@ -326,6 +404,8 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    flex: 1;
+    min-height: 0;
     overflow: auto;
 }
 
@@ -385,6 +465,7 @@ onUnmounted(() => {
     flex-direction: column;
     gap: 12px;
     height: 100%;
+    min-height: 0;
 }
 
 .detail-header {
@@ -408,16 +489,18 @@ onUnmounted(() => {
 
 .actions {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 10px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
 }
 
 .action-cluster {
     display: flex;
     align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 
 .action-btn {
@@ -440,21 +523,56 @@ onUnmounted(() => {
     color: #fecaca;
 }
 
-.services {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+.services-panel {
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    overflow: hidden;
 }
 
-.service-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    border: 1px solid var(--glass-border);
-    border-radius: 999px;
-    padding: 5px 10px;
-    font-size: 0.78rem;
-    background: var(--glass);
+.services-head {
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.services-table-wrap {
+    overflow: auto;
+    max-height: 150px;
+}
+
+.services-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.services-table th,
+.services-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--glass-border);
+    font-size: 0.84rem;
+    text-align: left;
+}
+
+.services-table th {
+    color: var(--text-muted);
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #1d2940;
+}
+
+.services-table tr:last-child td {
+    border-bottom: none;
+}
+
+.service-actions-col {
+    width: 260px;
+    text-align: right !important;
+}
+
+.service-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
 }
 
 .service-state {
@@ -544,8 +662,9 @@ onUnmounted(() => {
     font-size: 0.8rem;
     line-height: 1.35;
     padding: 10px;
-    overflow: auto;
-    max-height: 260px;
+    overflow: visible;
+    max-height: none;
+    white-space: pre;
 }
 
 .code.error {
@@ -606,6 +725,7 @@ onUnmounted(() => {
 @media (max-width: 1100px) {
     .compose-layout {
         grid-template-columns: 1fr;
+        height: auto;
     }
 
     .split {
@@ -614,6 +734,17 @@ onUnmounted(() => {
 
     .actions {
         width: 100%;
+        flex-wrap: wrap;
+        overflow-x: visible;
+    }
+
+    .service-actions-col {
+        width: auto;
+    }
+
+    .service-actions {
+        justify-content: flex-start;
+        flex-wrap: wrap;
     }
 }
 </style>
