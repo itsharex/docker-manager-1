@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { Network, Trash2, RefreshCw, Globe, ShieldCheck } from 'lucide-vue-next';
+import { ref, onMounted, computed, watch } from 'vue';
+import { Network, Trash2, RefreshCw } from 'lucide-vue-next';
 import { dockerApi } from '../api';
 
 const networks = ref<any[]>([]);
 const loading = ref(true);
+const currentPage = ref(1);
+const pageSize = ref(10);
+const pageSizeOptions = [10, 20, 50];
 
 const fetchNetworks = async () => {
     try {
@@ -19,17 +22,32 @@ const fetchNetworks = async () => {
 };
 
 const removeNetwork = async (id: string) => {
-    if (confirm('Are you sure you want to remove this network?')) {
-        try {
-            await dockerApi.removeNetwork(id);
-            await fetchNetworks();
-        } catch (err) {
-            alert(`Failed to remove network: ${err}`);
-        }
+    if (!confirm('Are you sure you want to remove this network?')) return;
+    try {
+        await dockerApi.removeNetwork(id);
+        await fetchNetworks();
+    } catch (err) {
+        alert(`Failed to remove network: ${err}`);
     }
 };
 
 onMounted(fetchNetworks);
+
+const totalItems = computed(() => networks.value.length);
+const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / pageSize.value)));
+const paginatedNetworks = computed(() => {
+    const start = (currentPage.value - 1) * pageSize.value;
+    return networks.value.slice(start, start + pageSize.value);
+});
+const pageStart = computed(() => (totalItems.value === 0 ? 0 : (currentPage.value - 1) * pageSize.value + 1));
+const pageEnd = computed(() => Math.min(currentPage.value * pageSize.value, totalItems.value));
+
+watch(pageSize, () => {
+    currentPage.value = 1;
+});
+watch(totalPages, (maxPage) => {
+    if (currentPage.value > maxPage) currentPage.value = maxPage;
+});
 </script>
 
 <template>
@@ -45,28 +63,50 @@ onMounted(fetchNetworks);
             </button>
         </div>
 
-        <div class="grid-container">
-            <div v-for="net in networks" :key="net.Id" class="network-card glass-panel animate-fade-in">
-                <div class="network-header">
-                    <div class="network-name">{{ net.Name }}</div>
-                    <button class="btn-icon btn-ghost text-danger" @click="removeNetwork(net.Id)">
-                        <Trash2 :size="16" />
-                    </button>
-                </div>
-                <div class="network-details">
-                    <div class="detail-item">
-                        <Globe :size="14" />
-                        <span>Driver: {{ net.Driver }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <ShieldCheck :size="14" />
-                        <span>Scope: {{ net.Scope }}</span>
-                    </div>
-                </div>
-                <div class="network-id">{{ net.Id.substring(0, 12) }}</div>
+        <div class="table-container glass-panel">
+            <table class="docker-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>ID</th>
+                        <th>Driver</th>
+                        <th>Scope</th>
+                        <th>Internal</th>
+                        <th class="actions-cell">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="net in paginatedNetworks" :key="net.Id">
+                        <td class="name-cell">{{ net.Name }}</td>
+                        <td><code>{{ net.Id.substring(0, 12) }}</code></td>
+                        <td>{{ net.Driver }}</td>
+                        <td>{{ net.Scope }}</td>
+                        <td>{{ net.Internal ? 'Yes' : 'No' }}</td>
+                        <td class="actions-cell">
+                            <button class="btn-icon btn-ghost text-danger" title="Remove" @click="removeNetwork(net.Id)">
+                                <Trash2 :size="16" />
+                            </button>
+                        </td>
+                    </tr>
+                    <tr v-if="networks.length === 0 && !loading">
+                        <td colspan="6" class="empty-state">No networks found</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div v-if="networks.length > 0" class="pagination glass-panel">
+            <div class="pager-meta">
+                <span>Rows</span>
+                <select v-model.number="pageSize">
+                    <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }}</option>
+                </select>
+                <span>{{ pageStart }}-{{ pageEnd }} / {{ totalItems }}</span>
             </div>
-            <div v-if="networks.length === 0 && !loading" class="empty-state glass-panel">
-                No networks found
+            <div class="pager-actions">
+                <button class="btn btn-ghost" :disabled="currentPage === 1" @click="currentPage--">Prev</button>
+                <span class="pager-page">Page {{ currentPage }} / {{ totalPages }}</span>
+                <button class="btn btn-ghost" :disabled="currentPage >= totalPages" @click="currentPage++">Next</button>
             </div>
         </div>
     </div>
@@ -97,59 +137,84 @@ onMounted(fetchNetworks);
     margin: 0;
 }
 
-.grid-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 20px;
-}
-
-.network-card {
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    position: relative;
-}
-
-.network-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.network-name {
-    font-family: 'Outfit', sans-serif;
-    font-weight: 600;
-    color: var(--text-main);
-}
-
-.network-details {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.detail-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-}
-
-.network-id {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    opacity: 0.5;
-    margin-top: 4px;
-}
-
 .icon-indigo {
     color: var(--primary);
 }
 
-.text-danger {
-    color: var(--danger) !important;
+.table-container {
+    overflow: hidden;
+}
+
+.docker-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.docker-table th {
+    text-align: left;
+    padding: 14px 20px;
+    font-size: 0.86rem;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.docker-table td {
+    padding: 14px 20px;
+    font-size: 0.88rem;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.docker-table tr:last-child td {
+    border-bottom: none;
+}
+
+.docker-table tr:hover {
+    background: var(--glass);
+}
+
+.name-cell {
+    font-weight: 600;
+}
+
+.actions-cell {
+    text-align: right;
+    width: 100px;
+}
+
+.empty-state {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 56px 0;
+}
+
+.pagination {
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.pager-meta,
+.pager-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+.pager-meta select {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    color: var(--text-main);
+    border-radius: 6px;
+    padding: 4px 6px;
+}
+
+.pager-page {
+    min-width: 92px;
+    text-align: center;
 }
 
 .animate-spin {
@@ -160,16 +225,8 @@ onMounted(fetchNetworks);
     from {
         transform: rotate(0deg);
     }
-
     to {
         transform: rotate(360deg);
     }
-}
-
-.empty-state {
-    grid-column: 1 / -1;
-    padding: 60px;
-    text-align: center;
-    color: var(--text-muted);
 }
 </style>

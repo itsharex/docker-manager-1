@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import {
     Play,
     Square,
@@ -19,6 +19,9 @@ const containers = ref<any[]>([]);
 const loading = ref(true);
 const searchQuery = ref('');
 const activeContainer = ref<any | null>(null);
+const currentPage = ref(1);
+const pageSize = ref(10);
+const pageSizeOptions = [10, 20, 50];
 
 const showLogsModal = ref(false);
 const logsOutput = ref('');
@@ -53,6 +56,15 @@ const filteredContainers = computed(() => {
         return name.includes(query) || image.includes(query) || id.includes(query);
     });
 });
+
+const totalItems = computed(() => filteredContainers.value.length);
+const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / pageSize.value)));
+const paginatedContainers = computed(() => {
+    const start = (currentPage.value - 1) * pageSize.value;
+    return filteredContainers.value.slice(start, start + pageSize.value);
+});
+const pageStart = computed(() => (totalItems.value === 0 ? 0 : (currentPage.value - 1) * pageSize.value + 1));
+const pageEnd = computed(() => Math.min(currentPage.value * pageSize.value, totalItems.value));
 
 const scrollToBottom = async (target: 'logs' | 'terminal') => {
     await nextTick();
@@ -153,6 +165,18 @@ onUnmounted(() => {
     closeLogs();
     closeTerminal();
 });
+
+watch(searchQuery, () => {
+    currentPage.value = 1;
+});
+
+watch(pageSize, () => {
+    currentPage.value = 1;
+});
+
+watch(totalPages, (maxPage) => {
+    if (currentPage.value > maxPage) currentPage.value = maxPage;
+});
 </script>
 
 <template>
@@ -181,7 +205,7 @@ onUnmounted(() => {
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="container in filteredContainers" :key="container.Id">
+                    <tr v-for="container in paginatedContainers" :key="container.Id">
                         <td class="name-cell">
                             <div class="container-name">
                                 {{ container.Names[0].replace('/', '') }}
@@ -239,6 +263,21 @@ onUnmounted(() => {
                     </tr>
                 </tbody>
             </table>
+        </div>
+
+        <div v-if="filteredContainers.length > 0" class="pagination glass-panel">
+            <div class="pager-meta">
+                <span>Rows</span>
+                <select v-model.number="pageSize">
+                    <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }}</option>
+                </select>
+                <span>{{ pageStart }}-{{ pageEnd }} / {{ totalItems }}</span>
+            </div>
+            <div class="pager-actions">
+                <button class="btn btn-ghost" :disabled="currentPage === 1" @click="currentPage--">Prev</button>
+                <span class="pager-page">Page {{ currentPage }} / {{ totalPages }}</span>
+                <button class="btn btn-ghost" :disabled="currentPage >= totalPages" @click="currentPage++">Next</button>
+            </div>
         </div>
 
         <div v-if="showLogsModal" class="modal-backdrop" @click.self="closeLogs">
@@ -483,6 +522,36 @@ onUnmounted(() => {
     padding: 80px 0;
     text-align: center;
     color: var(--text-muted);
+}
+
+.pagination {
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.pager-meta,
+.pager-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+.pager-meta select {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    color: var(--text-main);
+    border-radius: 6px;
+    padding: 4px 6px;
+}
+
+.pager-page {
+    min-width: 92px;
+    text-align: center;
 }
 
 .modal-backdrop {

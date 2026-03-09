@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { Box, Trash2, RefreshCw, Layers } from 'lucide-vue-next';
+import { ref, onMounted, computed, watch } from 'vue';
+import { Box, Trash2, RefreshCw } from 'lucide-vue-next';
 import { dockerApi } from '../api';
 import dayjs from 'dayjs';
 
 const images = ref<any[]>([]);
 const loading = ref(true);
+const currentPage = ref(1);
+const pageSize = ref(10);
+const pageSizeOptions = [10, 20, 50];
 
 const fetchImages = async () => {
     try {
         loading.value = true;
         const { data } = await dockerApi.getImages();
-        images.value = data;
+        images.value = data || [];
     } catch (err) {
         console.error('Failed to fetch images:', err);
     } finally {
@@ -20,19 +23,32 @@ const fetchImages = async () => {
 };
 
 const removeImage = async (id: string) => {
-    if (confirm('Are you sure you want to remove this image?')) {
-        try {
-            await dockerApi.removeImage(id);
-            await fetchImages();
-        } catch (err) {
-            alert(`Failed to remove image: ${err}`);
-        }
+    if (!confirm('Are you sure you want to remove this image?')) return;
+    try {
+        await dockerApi.removeImage(id);
+        await fetchImages();
+    } catch (err) {
+        alert(`Failed to remove image: ${err}`);
     }
 };
 
-const formatSize = (bytes: number) => {
-    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
-};
+const formatSize = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
+const totalItems = computed(() => images.value.length);
+const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / pageSize.value)));
+const paginatedImages = computed(() => {
+    const start = (currentPage.value - 1) * pageSize.value;
+    return images.value.slice(start, start + pageSize.value);
+});
+const pageStart = computed(() => (totalItems.value === 0 ? 0 : (currentPage.value - 1) * pageSize.value + 1));
+const pageEnd = computed(() => Math.min(currentPage.value * pageSize.value, totalItems.value));
+
+watch(pageSize, () => {
+    currentPage.value = 1;
+});
+watch(totalPages, (maxPage) => {
+    if (currentPage.value > maxPage) currentPage.value = maxPage;
+});
 
 onMounted(fetchImages);
 </script>
@@ -50,31 +66,48 @@ onMounted(fetchImages);
             </button>
         </div>
 
-        <div class="grid-container">
-            <div v-for="image in images" :key="image.Id" class="image-card glass-panel animate-fade-in">
-                <div class="image-header">
-                    <div class="image-repo">
-                        {{ image.RepoTags?.[0] || '<none>:<none>' }}
-                    </div>
-                    <button class="btn-icon btn-ghost text-danger" @click="removeImage(image.Id)">
-                        <Trash2 :size="16" />
-                    </button>
-                </div>
-                <div class="image-footer">
-                    <div class="info-item">
-                        <Layers :size="14" />
-                        <span>{{ image.Id.substring(7, 19) }}</span>
-                    </div>
-                    <div class="info-item">
-                        <span>{{ formatSize(image.Size) }}</span>
-                    </div>
-                    <div class="info-item date">
-                        {{ dayjs.unix(image.Created).format('MMM D, YYYY') }}
-                    </div>
-                </div>
+        <div class="table-container glass-panel">
+            <table class="docker-table">
+                <thead>
+                    <tr>
+                        <th>Repository:Tag</th>
+                        <th>ID</th>
+                        <th>Size</th>
+                        <th>Created</th>
+                        <th class="actions-cell">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="image in paginatedImages" :key="image.Id">
+                        <td class="name-cell">{{ image.RepoTags?.[0] || '&lt;none&gt;:&lt;none&gt;' }}</td>
+                        <td><code>{{ image.Id.substring(7, 19) }}</code></td>
+                        <td>{{ formatSize(image.Size) }}</td>
+                        <td>{{ dayjs.unix(image.Created).format('YYYY-MM-DD HH:mm') }}</td>
+                        <td class="actions-cell">
+                            <button class="btn-icon btn-ghost text-danger" title="Remove" @click="removeImage(image.Id)">
+                                <Trash2 :size="16" />
+                            </button>
+                        </td>
+                    </tr>
+                    <tr v-if="images.length === 0 && !loading">
+                        <td colspan="5" class="empty-state">No images found</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div v-if="images.length > 0" class="pagination glass-panel">
+            <div class="pager-meta">
+                <span>Rows</span>
+                <select v-model.number="pageSize">
+                    <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }}</option>
+                </select>
+                <span>{{ pageStart }}-{{ pageEnd }} / {{ totalItems }}</span>
             </div>
-            <div v-if="images.length === 0 && !loading" class="empty-state glass-panel">
-                No images found
+            <div class="pager-actions">
+                <button class="btn btn-ghost" :disabled="currentPage === 1" @click="currentPage--">Prev</button>
+                <span class="pager-page">Page {{ currentPage }} / {{ totalPages }}</span>
+                <button class="btn btn-ghost" :disabled="currentPage >= totalPages" @click="currentPage++">Next</button>
             </div>
         </div>
     </div>
@@ -105,66 +138,85 @@ onMounted(fetchImages);
     margin: 0;
 }
 
-.grid-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 20px;
-}
-
-.image-card {
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    transition: transform 0.2s;
-}
-
-.image-card:hover {
-    transform: translateY(-4px);
-    border-color: var(--primary);
-}
-
-.image-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-}
-
-.image-repo {
-    font-family: 'Outfit', sans-serif;
-    font-weight: 600;
-    font-size: 1rem;
-    word-break: break-all;
-    color: var(--text-main);
-}
-
-.image-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: auto;
-    padding-top: 12px;
-    border-top: 1px solid var(--glass-border);
-}
-
-.info-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.8rem;
-    color: var(--text-muted);
-}
-
-.date {
-    font-style: italic;
-}
-
 .icon-indigo {
     color: var(--primary);
 }
 
-.text-danger {
-    color: var(--danger) !important;
+.table-container {
+    overflow: hidden;
+}
+
+.docker-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.docker-table th {
+    text-align: left;
+    padding: 14px 20px;
+    font-size: 0.86rem;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.docker-table td {
+    padding: 14px 20px;
+    font-size: 0.88rem;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.docker-table tr:last-child td {
+    border-bottom: none;
+}
+
+.docker-table tr:hover {
+    background: var(--glass);
+}
+
+.name-cell {
+    font-weight: 600;
+    word-break: break-all;
+}
+
+.actions-cell {
+    text-align: right;
+    width: 100px;
+}
+
+.empty-state {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 56px 0;
+}
+
+.pagination {
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.pager-meta,
+.pager-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+.pager-meta select {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    color: var(--text-main);
+    border-radius: 6px;
+    padding: 4px 6px;
+}
+
+.pager-page {
+    min-width: 92px;
+    text-align: center;
 }
 
 .animate-spin {
@@ -175,16 +227,8 @@ onMounted(fetchImages);
     from {
         transform: rotate(0deg);
     }
-
     to {
         transform: rotate(360deg);
     }
-}
-
-.empty-state {
-    grid-column: 1 / -1;
-    padding: 60px;
-    text-align: center;
-    color: var(--text-muted);
 }
 </style>

@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { HardDrive, Trash2, RefreshCw, Calendar, Server } from 'lucide-vue-next';
+import { ref, onMounted, computed, watch } from 'vue';
+import { HardDrive, Trash2, RefreshCw } from 'lucide-vue-next';
 import { dockerApi } from '../api';
 import dayjs from 'dayjs';
 
 const volumes = ref<any[]>([]);
 const loading = ref(true);
+const currentPage = ref(1);
+const pageSize = ref(10);
+const pageSizeOptions = [10, 20, 50];
 
 const fetchVolumes = async () => {
     try {
@@ -19,18 +22,33 @@ const fetchVolumes = async () => {
     }
 };
 
-const removeVolume = async (id: string) => {
-    if (confirm('Are you sure you want to remove this volume?')) {
-        try {
-            await dockerApi.removeVolume(id);
-            await fetchVolumes();
-        } catch (err) {
-            alert(`Failed to remove volume: ${err}`);
-        }
+const removeVolume = async (name: string) => {
+    if (!confirm('Are you sure you want to remove this volume?')) return;
+    try {
+        await dockerApi.removeVolume(name);
+        await fetchVolumes();
+    } catch (err) {
+        alert(`Failed to remove volume: ${err}`);
     }
 };
 
 onMounted(fetchVolumes);
+
+const totalItems = computed(() => volumes.value.length);
+const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / pageSize.value)));
+const paginatedVolumes = computed(() => {
+    const start = (currentPage.value - 1) * pageSize.value;
+    return volumes.value.slice(start, start + pageSize.value);
+});
+const pageStart = computed(() => (totalItems.value === 0 ? 0 : (currentPage.value - 1) * pageSize.value + 1));
+const pageEnd = computed(() => Math.min(currentPage.value * pageSize.value, totalItems.value));
+
+watch(pageSize, () => {
+    currentPage.value = 1;
+});
+watch(totalPages, (maxPage) => {
+    if (currentPage.value > maxPage) currentPage.value = maxPage;
+});
 </script>
 
 <template>
@@ -46,29 +64,48 @@ onMounted(fetchVolumes);
             </button>
         </div>
 
-        <div class="grid-container">
-            <div v-for="vol in volumes" :key="vol.Name" class="volume-card glass-panel animate-fade-in">
-                <div class="volume-header">
-                    <div class="volume-name">
-                        {{ vol.Name.substring(0, 20) }}{{ vol.Name.length > 20 ? '...' : '' }}
-                    </div>
-                    <button class="btn-icon btn-ghost text-danger" @click="removeVolume(vol.Name)">
-                        <Trash2 :size="16" />
-                    </button>
-                </div>
-                <div class="volume-details">
-                    <div class="detail-item">
-                        <Server :size="14" />
-                        <span>Driver: {{ vol.Driver }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <Calendar :size="14" />
-                        <span>{{ dayjs(vol.CreatedAt).format('MMM D, YYYY') }}</span>
-                    </div>
-                </div>
+        <div class="table-container glass-panel">
+            <table class="docker-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Driver</th>
+                        <th>Mountpoint</th>
+                        <th>Created</th>
+                        <th class="actions-cell">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="vol in paginatedVolumes" :key="vol.Name">
+                        <td class="name-cell">{{ vol.Name }}</td>
+                        <td>{{ vol.Driver }}</td>
+                        <td><code>{{ vol.Mountpoint || '-' }}</code></td>
+                        <td>{{ vol.CreatedAt ? dayjs(vol.CreatedAt).format('YYYY-MM-DD HH:mm') : '-' }}</td>
+                        <td class="actions-cell">
+                            <button class="btn-icon btn-ghost text-danger" title="Remove" @click="removeVolume(vol.Name)">
+                                <Trash2 :size="16" />
+                            </button>
+                        </td>
+                    </tr>
+                    <tr v-if="volumes.length === 0 && !loading">
+                        <td colspan="5" class="empty-state">No volumes found</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div v-if="volumes.length > 0" class="pagination glass-panel">
+            <div class="pager-meta">
+                <span>Rows</span>
+                <select v-model.number="pageSize">
+                    <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }}</option>
+                </select>
+                <span>{{ pageStart }}-{{ pageEnd }} / {{ totalItems }}</span>
             </div>
-            <div v-if="volumes.length === 0 && !loading" class="empty-state glass-panel">
-                No volumes found
+            <div class="pager-actions">
+                <button class="btn btn-ghost" :disabled="currentPage === 1" @click="currentPage--">Prev</button>
+                <span class="pager-page">Page {{ currentPage }} / {{ totalPages }}</span>
+                <button class="btn btn-ghost" :disabled="currentPage >= totalPages" @click="currentPage++">Next</button>
             </div>
         </div>
     </div>
@@ -99,52 +136,85 @@ onMounted(fetchVolumes);
     margin: 0;
 }
 
-.grid-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 20px;
-}
-
-.volume-card {
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.volume-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.volume-name {
-    font-family: 'Outfit', sans-serif;
-    font-weight: 600;
-    color: var(--text-main);
-    word-break: break-all;
-}
-
-.volume-details {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.detail-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-}
-
 .icon-indigo {
     color: var(--primary);
 }
 
-.text-danger {
-    color: var(--danger) !important;
+.table-container {
+    overflow: hidden;
+}
+
+.docker-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.docker-table th {
+    text-align: left;
+    padding: 14px 20px;
+    font-size: 0.86rem;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.docker-table td {
+    padding: 14px 20px;
+    font-size: 0.88rem;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.docker-table tr:last-child td {
+    border-bottom: none;
+}
+
+.docker-table tr:hover {
+    background: var(--glass);
+}
+
+.name-cell {
+    font-weight: 600;
+    word-break: break-all;
+}
+
+.actions-cell {
+    text-align: right;
+    width: 100px;
+}
+
+.empty-state {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 56px 0;
+}
+
+.pagination {
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.pager-meta,
+.pager-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+.pager-meta select {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    color: var(--text-main);
+    border-radius: 6px;
+    padding: 4px 6px;
+}
+
+.pager-page {
+    min-width: 92px;
+    text-align: center;
 }
 
 .animate-spin {
@@ -155,16 +225,8 @@ onMounted(fetchVolumes);
     from {
         transform: rotate(0deg);
     }
-
     to {
         transform: rotate(360deg);
     }
-}
-
-.empty-state {
-    grid-column: 1 / -1;
-    padding: 60px;
-    text-align: center;
-    color: var(--text-muted);
 }
 </style>
