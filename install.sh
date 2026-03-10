@@ -4,8 +4,8 @@ set -e
 
 APP_DIR="/opt/docker-manager"
 
-BACKEND_IMAGE="ngthanhvu/docker-manager-backend:v1.0.0"
-FRONTEND_IMAGE="ngthanhvu/docker-manager-frontend:v1.0.0"
+BACKEND_IMAGE="ngthanhvu/docker-manager-backend:latest"
+FRONTEND_IMAGE="ngthanhvu/docker-manager-frontend:latest"
 
 DEFAULT_PORT=8088
 

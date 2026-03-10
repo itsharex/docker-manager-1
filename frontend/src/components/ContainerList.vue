@@ -63,7 +63,7 @@ const getPortLabel = (port: any) => {
 const normalizeContainer = (container: any) => {
     const ports = Array.isArray(container?.Ports) ? container.Ports : [];
     const seen = new Set<string>();
-    const uniquePorts = ports.filter((port) => {
+    const uniquePorts = ports.filter((port: any) => {
         const key = getPortKey(port);
         if (seen.has(key)) return false;
         seen.add(key);
