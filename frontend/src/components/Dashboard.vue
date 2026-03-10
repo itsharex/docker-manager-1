@@ -101,7 +101,7 @@ const gauges = computed(() => ([
     }
 ]));
 
-const chartData = computed(() => ({
+const buildChartData = () => ({
     labels: [...labels.value],
     datasets: [
         {
@@ -123,7 +123,9 @@ const chartData = computed(() => ({
             pointRadius: 0
         }
     ]
-}));
+});
+
+const chartData = ref(buildChartData());
 
 const chartOptions = {
     responsive: true,
@@ -184,6 +186,8 @@ const updateCharts = () => {
         cpuData.value.shift();
         memData.value.shift();
     }
+
+    chartData.value = buildChartData();
 };
 
 onMounted(() => {

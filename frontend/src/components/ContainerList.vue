@@ -7,7 +7,8 @@ import {
     Terminal as TerminalIcon,
     FileText,
     Search,
-    RefreshCw
+    RefreshCw,
+    RotateCw
 } from 'lucide-vue-next';
 import { dockerApi, getWsUrl } from '../api';
 import { feedback } from '../ui/feedback';
@@ -46,10 +47,40 @@ let terminalResizeObserver: ResizeObserver | null = null;
 let terminalDataDisposable: { dispose: () => void } | null = null;
 let terminalContainerName = '';
 
+const getPortKey = (port: any) => [
+    port?.IP || '',
+    port?.Type || '',
+    port?.PublicPort ?? '',
+    port?.PrivatePort ?? '',
+].join(':');
+
+const getPortLabel = (port: any) => {
+    const privatePort = port?.PrivatePort ?? '?';
+    const publicPort = port?.PublicPort;
+    return publicPort ? `${publicPort}:${privatePort}` : String(privatePort);
+};
+
+const normalizeContainer = (container: any) => {
+    const ports = Array.isArray(container?.Ports) ? container.Ports : [];
+    const seen = new Set<string>();
+    const uniquePorts = ports.filter((port) => {
+        const key = getPortKey(port);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+
+    return {
+        ...container,
+        Ports: uniquePorts,
+    };
+};
+
 const fetchContainers = async () => {
+    loading.value = true;
     try {
         const { data } = await dockerApi.getContainers();
-        containers.value = data || [];
+        containers.value = Array.isArray(data) ? data.map(normalizeContainer) : [];
     } catch (err) {
         console.error('Failed to fetch containers:', err);
     } finally {
@@ -304,6 +335,7 @@ const handleAction = async (action: string, id: string) => {
     try {
         if (action === 'start') await dockerApi.startContainer(id);
         else if (action === 'stop') await dockerApi.stopContainer(id);
+        else if (action === 'restart') await dockerApi.restartContainer(id);
         else if (action === 'remove') {
             const accepted = await feedback.confirmAction({
                 title: 'Delete Container',
@@ -319,6 +351,7 @@ const handleAction = async (action: string, id: string) => {
         await fetchContainers();
         if (action === 'start') feedback.success('Container started successfully.');
         else if (action === 'stop') feedback.success('Container stopped successfully.');
+        else if (action === 'restart') feedback.success('Container restarted successfully.');
         else if (action === 'remove') feedback.success('Container removed successfully.');
     } catch (err) {
         feedback.error(`Action failed: ${err}`);
@@ -332,6 +365,12 @@ const getStatusColor = (status: string) => {
 };
 
 let interval: any;
+const handleVisibilityChange = () => {
+    if (!document.hidden) {
+        fetchContainers();
+    }
+};
+
 const setupInterval = () => {
     if (interval) clearInterval(interval);
     const ms = appSettings.general.autoRefreshMs;
@@ -342,10 +381,12 @@ const setupInterval = () => {
 onMounted(() => {
     fetchContainers();
     setupInterval();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 });
 
 onUnmounted(() => {
     clearInterval(interval);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
     closeLogs();
     closeTerminal();
 });
@@ -425,17 +466,17 @@ watch(() => appSettings.general.autoRefreshMs, () => {
                                 <span class="id-short">{{ container.Id.substring(0, 12) }}</span>
                             </div>
                         </td>
-                        <td><code class="image-name">{{ container.Image }}</code></td>
-                        <td>
+                        <td class="image-cell"><code class="image-name">{{ container.Image }}</code></td>
+                        <td class="status-cell">
                             <div class="status-pill" :style="{ '--color': getStatusColor(container.Status) }">
                                 <span class="dot"></span>
                                 {{ container.Status }}
                             </div>
                         </td>
-                        <td>
+                        <td class="ports-cell">
                             <div class="ports">
-                                <span v-for="port in container.Ports" :key="port.PublicPort" class="port-tag">
-                                    {{ port.PublicPort }}:{{ port.PrivatePort }}
+                                <span v-for="port in container.Ports" :key="`${container.Id}-${getPortKey(port)}`" class="port-tag">
+                                    {{ getPortLabel(port) }}
                                 </span>
                             </div>
                         </td>
@@ -455,6 +496,13 @@ watch(() => appSettings.general.autoRefreshMs, () => {
                                     title="Stop"
                                     @click="handleAction('stop', container.Id)">
                                     <Square :size="16" />
+                                </button>
+                                <button
+                                    class="action-btn action-neutral"
+                                    :disabled="!container.Status.includes('Up')"
+                                    title="Restart"
+                                    @click="handleAction('restart', container.Id)">
+                                    <RotateCw :size="16" />
                                 </button>
                                 <button class="action-btn action-neutral" title="Logs" @click="openLogs(container)">
                                     <FileText :size="16" />
@@ -520,6 +568,7 @@ watch(() => appSettings.general.autoRefreshMs, () => {
     display: flex;
     flex-direction: column;
     gap: 24px;
+    min-width: 0;
 }
 
 .toolbar {
@@ -527,12 +576,15 @@ watch(() => appSettings.general.autoRefreshMs, () => {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
+    min-width: 0;
 }
 
 .toolbar-actions {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0;
 }
 
 .search-box {
@@ -544,6 +596,8 @@ watch(() => appSettings.general.autoRefreshMs, () => {
     border-radius: 10px;
     border: 1px solid var(--glass-border);
     width: 300px;
+    max-width: 100%;
+    min-width: 0;
 }
 
 .search-box input {
@@ -556,11 +610,14 @@ watch(() => appSettings.general.autoRefreshMs, () => {
 }
 
 .table-container {
-    overflow: hidden;
+    overflow: auto;
+    width: 100%;
+    min-width: 0;
 }
 
 .docker-table {
     width: 100%;
+    min-width: 1320px;
     border-collapse: collapse;
     text-align: left;
 }
@@ -584,6 +641,22 @@ watch(() => appSettings.general.autoRefreshMs, () => {
     width: 56px;
     text-align: center !important;
     padding: 10px !important;
+}
+
+.name-cell {
+    min-width: 240px;
+}
+
+.image-cell {
+    min-width: 220px;
+}
+
+.status-cell {
+    min-width: 190px;
+}
+
+.ports-cell {
+    min-width: 240px;
 }
 
 .bulk-checkbox {
@@ -613,13 +686,15 @@ watch(() => appSettings.general.autoRefreshMs, () => {
 
 .container-name {
     font-weight: 600;
+    font-size: 1rem;
+    line-height: 1.25;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
 }
 
 .id-short {
-    font-size: 0.75rem;
+    font-size: 0.82rem;
     color: var(--text-muted);
     font-weight: 400;
 }
@@ -629,6 +704,11 @@ watch(() => appSettings.general.autoRefreshMs, () => {
     padding: 4px 8px;
     border-radius: 6px;
     color: var(--primary);
+    white-space: nowrap;
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .status-pill {
@@ -641,6 +721,7 @@ watch(() => appSettings.general.autoRefreshMs, () => {
     border-radius: 20px;
     font-size: 0.8rem;
     color: var(--color);
+    white-space: nowrap;
 }
 
 .dot {
@@ -652,8 +733,10 @@ watch(() => appSettings.general.autoRefreshMs, () => {
 
 .ports {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: thin;
 }
 
 .port-tag {
@@ -662,6 +745,8 @@ watch(() => appSettings.general.autoRefreshMs, () => {
     font-size: 0.75rem;
     padding: 2px 6px;
     border-radius: 4px;
+    white-space: nowrap;
+    flex: 0 0 auto;
 }
 
 .action-group {
@@ -688,6 +773,12 @@ watch(() => appSettings.general.autoRefreshMs, () => {
 .action-btn:hover {
     transform: translateY(-1px);
     color: var(--text-main);
+}
+
+.action-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
 }
 
 .action-neutral:hover {
@@ -730,7 +821,14 @@ watch(() => appSettings.general.autoRefreshMs, () => {
 
 .actions-cell {
     text-align: right;
-    width: 200px;
+    width: 240px;
+    min-width: 240px;
+    white-space: nowrap;
+}
+
+.time-cell {
+    min-width: 140px;
+    white-space: nowrap;
 }
 
 .animate-spin {

@@ -165,8 +165,10 @@ watch(() => appSettings.general.autoRefreshMs, () => {
 <style scoped>
 .app-container {
   display: flex;
-  height: 100vh;
-  width: 100vw;
+  min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
   background: radial-gradient(circle at top right, rgba(36, 150, 237, 0.08), transparent),
     radial-gradient(circle at bottom left, rgba(29, 99, 237, 0.07), transparent);
 }
@@ -268,8 +270,10 @@ watch(() => appSettings.general.autoRefreshMs, () => {
 
 .main-content {
   flex-grow: 1;
+  min-width: 0;
   padding: 40px;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -330,5 +334,7 @@ watch(() => appSettings.general.autoRefreshMs, () => {
 
 .content-area {
   flex-grow: 1;
+  min-width: 0;
+  width: 100%;
 }
 </style>
