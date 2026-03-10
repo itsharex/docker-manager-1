@@ -9,6 +9,18 @@ FRONTEND_IMAGE="ngthanhvu/docker-manager-frontend:latest"
 
 DEFAULT_PORT=8088
 
+if [ "$(id -u)" -eq 0 ]; then
+    SUDO=""
+else
+    if ! command -v sudo >/dev/null 2>&1; then
+        echo "This installer needs root privileges to write to $APP_DIR and manage Docker."
+        echo "Please run it with sudo, for example:"
+        echo "sudo bash <(curl -Ls https://raw.githubusercontent.com/ngthanhvu/docker-manager/refs/heads/main/install.sh)"
+        exit 1
+    fi
+    SUDO="sudo"
+fi
+
 echo "================================="
 echo " Docker Manager Installer"
 echo "================================="
@@ -31,7 +43,7 @@ echo "Installing Docker Manager..."
 if ! command -v docker &> /dev/null
 then
     echo "Docker not found. Installing..."
-    curl -fsSL https://get.docker.com | sh
+    curl -fsSL https://get.docker.com | $SUDO sh
 fi
 
 # check compose
@@ -62,11 +74,11 @@ done
 echo "Using port: $PORT"
 
 # create install dir
-mkdir -p $APP_DIR
-cd $APP_DIR
+$SUDO mkdir -p "$APP_DIR"
+cd "$APP_DIR"
 
 # create compose file
-cat > docker-compose.yml <<EOF
+$SUDO tee "$APP_DIR/docker-compose.yml" >/dev/null <<EOF
 version: "3.8"
 
 services:
@@ -91,10 +103,10 @@ services:
 EOF
 
 echo "Pulling images..."
-docker compose pull
+$SUDO docker compose -f "$APP_DIR/docker-compose.yml" pull
 
 echo "Starting Docker Manager..."
-docker compose up -d
+$SUDO docker compose -f "$APP_DIR/docker-compose.yml" up -d
 
 IP=$(hostname -I | awk '{print $1}')
 
@@ -130,17 +142,17 @@ if [ "$CONFIRM" != "y" ]; then
     exit 0
 fi
 
-cd $APP_DIR
+cd "$APP_DIR"
 
 echo "Stopping containers..."
-docker compose down
+$SUDO docker compose -f "$APP_DIR/docker-compose.yml" down
 
 echo "Removing images..."
-docker image rm $BACKEND_IMAGE 2>/dev/null || true
-docker image rm $FRONTEND_IMAGE 2>/dev/null || true
+$SUDO docker image rm "$BACKEND_IMAGE" 2>/dev/null || true
+$SUDO docker image rm "$FRONTEND_IMAGE" 2>/dev/null || true
 
 echo "Removing install directory..."
-rm -rf $APP_DIR
+$SUDO rm -rf "$APP_DIR"
 
 echo ""
 echo "Docker Manager removed successfully."
