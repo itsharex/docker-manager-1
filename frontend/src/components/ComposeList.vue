@@ -149,7 +149,6 @@ const isDraftChanged = computed(() => {
 });
 const originalFileContent = computed(() => selectedFile.value?.content || '');
 const diffPreview = computed(() => buildDiffPreview(originalFileContent.value, fileDraft.value));
-const isComposeValid = computed(() => !composeValidationError.value);
 const canSaveCompose = computed(() =>
     isDraftChanged.value
     && selectedFileIsEditable.value
@@ -853,7 +852,7 @@ watch(selectedFilePath, () => {
                                 </div>
                                 <div class="editor-actions-group editor-actions-group-primary">
                                     <button class="btn btn-primary compact-btn" :disabled="!canSaveCompose"
-                                        @click="saveSelectedFile">
+                                        @click="() => saveSelectedFile()">
                                         <Save :size="14" :class="{ 'animate-spin': savingFile }" />
                                         Save
                                     </button>
@@ -917,7 +916,7 @@ watch(selectedFilePath, () => {
                             Close
                         </button>
                         <button class="btn btn-primary compact-btn" :disabled="!canSaveCompose"
-                            @click="saveSelectedFile">
+                            @click="() => saveSelectedFile()">
                             <Save :size="14" :class="{ 'animate-spin': savingFile && !restartingAfterSave }" />
                             Save
                         </button>
