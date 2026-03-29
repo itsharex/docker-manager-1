@@ -147,14 +147,13 @@ watch(() => appSettings.general.autoRefreshMs, () => {
       <div class="glass-panel flex h-[calc(100vh-2rem)] h-[calc(100dvh-2rem)] flex-col overflow-hidden">
         <div class="border-b px-6 py-6" style="border-color: var(--glass-border);">
           <div class="mb-2 flex items-center gap-3">
-            <div
-              class="grid h-12 w-12 place-items-center border text-2xl"
-              style="border-color: var(--primary); background: rgba(29, 78, 216, 0.12); color: var(--primary);"
-            >
+            <div class="grid h-12 w-12 place-items-center border text-2xl"
+              style="border-color: var(--primary); background: rgba(29, 78, 216, 0.12); color: var(--primary);">
               <i class="fa-brands fa-docker" aria-hidden="true"></i>
             </div>
             <div>
-              <p class="text-[11px] uppercase tracking-[0.24em]" style="color: var(--text-muted);">{{ t('nav.opsPanel') }}</p>
+              <p class="text-[11px] uppercase tracking-[0.24em]" style="color: var(--text-muted);">{{ t('nav.opsPanel')
+                }}</p>
               <div class="text-xl font-bold tracking-tight">Dock Manager</div>
             </div>
           </div>
@@ -164,16 +163,12 @@ watch(() => appSettings.general.autoRefreshMs, () => {
         </div>
 
         <nav class="flex flex-1 flex-col gap-2 p-4">
-          <button
-            v-for="(tab, index) in tabs"
-            :key="tab.id"
-            class="flex items-center justify-between border px-4 py-3 text-left text-sm font-semibold transition"
-            :class="activeTab === tab.id ? 'shadow-[4px_4px_0_rgba(0,0,0,0.28)]' : ''"
-            :style="activeTab === tab.id
+          <button v-for="(tab, index) in tabs" :key="tab.id"
+            class="cursor-pointer flex items-center justify-between border px-4 py-3 text-left text-sm font-semibold transition"
+            :class="activeTab === tab.id ? 'shadow-[4px_4px_0_rgba(0,0,0,0.28)]' : ''" :style="activeTab === tab.id
               ? 'border-color: var(--primary); background: var(--primary); color: white;'
               : 'border-color: var(--glass-border); background: var(--glass); color: var(--text-muted);'"
-            @click="setActiveTab(tab.id)"
-          >
+            @click="setActiveTab(tab.id)">
             <span class="flex items-center gap-3">
               <component :is="tab.icon" :size="18" />
               {{ t(tab.nameKey) }}
@@ -208,27 +203,29 @@ watch(() => appSettings.general.autoRefreshMs, () => {
 
     <main class="min-w-0 flex-1 p-4 pl-4 lg:pl-0">
       <div class="glass-panel flex h-[calc(100vh-2rem)] h-[calc(100dvh-2rem)] min-w-0 flex-col overflow-hidden">
-        <header
-          class="border-b px-5 py-5 sm:px-8"
-          style="border-color: var(--glass-border); background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);"
-        >
+        <header class="border-b px-5 py-5 sm:px-8"
+          style="border-color: var(--glass-border); background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);">
           <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
             <div>
               <p class="mb-2 text-[11px] uppercase tracking-[0.24em]" style="color: var(--text-muted);">
                 {{ activeTabMeta ? t(activeTabMeta.nameKey) : '' }}
               </p>
-              <h1 class="text-3xl font-bold tracking-tight sm:text-4xl">{{ activeTabMeta ? t(activeTabMeta.nameKey) : '' }}</h1>
-              <p v-if="activeTab === 'dashboard'" class="mt-2 max-w-2xl text-sm leading-6" style="color: var(--text-muted);">
+              <h1 class="text-3xl font-bold tracking-tight sm:text-4xl">{{ activeTabMeta ? t(activeTabMeta.nameKey) : ''
+                }}</h1>
+              <p v-if="activeTab === 'dashboard'" class="mt-2 max-w-2xl text-sm leading-6"
+                style="color: var(--text-muted);">
                 {{ t('nav.dashboardSubtitle') }}
               </p>
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
-              <div class="border px-4 py-2 text-sm" style="border-color: var(--glass-border); background: var(--glass);">
+              <div class="border px-4 py-2 text-sm"
+                style="border-color: var(--glass-border); background: var(--glass);">
                 <span style="color: var(--text-muted);">{{ t('nav.user') }}</span>
                 <strong class="ml-2">{{ authState.user?.username }}</strong>
               </div>
-              <div v-if="systemInfo" class="flex items-center gap-3 border px-4 py-2 text-sm" style="border-color: var(--glass-border); background: var(--glass);">
+              <div v-if="systemInfo" class="flex items-center gap-3 border px-4 py-2 text-sm"
+                style="border-color: var(--glass-border); background: var(--glass);">
                 <span class="h-2.5 w-2.5 animate-pulse" style="background: var(--success);"></span>
                 Docker {{ systemInfo.ServerVersion }}
               </div>
@@ -239,15 +236,10 @@ watch(() => appSettings.general.autoRefreshMs, () => {
 
         <div class="border-b px-5 py-3 lg:hidden" style="border-color: var(--glass-border);">
           <div class="flex gap-2 overflow-x-auto">
-            <button
-              v-for="tab in tabs"
-              :key="tab.id"
-              class="shrink-0 border px-3 py-2 text-sm font-semibold"
-              :style="activeTab === tab.id
-                ? 'border-color: var(--primary); background: var(--primary); color: white;'
-                : 'border-color: var(--glass-border); background: var(--glass); color: var(--text-muted);'"
-              @click="setActiveTab(tab.id)"
-            >
+            <button v-for="tab in tabs" :key="tab.id" class="shrink-0 border px-3 py-2 text-sm font-semibold" :style="activeTab === tab.id
+              ? 'border-color: var(--primary); background: var(--primary); color: white;'
+              : 'border-color: var(--glass-border); background: var(--glass); color: var(--text-muted);'"
+              @click="setActiveTab(tab.id)">
               {{ t(tab.nameKey) }}
             </button>
           </div>

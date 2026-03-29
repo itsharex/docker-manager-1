@@ -22,6 +22,13 @@
   --input-bg: #141414;
   --select-option-bg: #1a1a1a;
   --select-option-text: #f4f4f0;
+  --button-shadow: rgba(0, 0, 0, 0.28);
+  --danger-soft-text: #fecaca;
+  --danger-soft-border: rgba(255, 95, 86, 0.55);
+  --danger-soft-bg: rgba(255, 95, 86, 0.12);
+  --warning-soft-text: #fde68a;
+  --warning-soft-border: rgba(244, 185, 66, 0.5);
+  --warning-soft-bg: rgba(244, 185, 66, 0.14);
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --font-scale: 1;
   --density-scale: 1;
@@ -44,6 +51,13 @@
   --input-bg: #f7f3ea;
   --select-option-bg: #f7f3ea;
   --select-option-text: #161616;
+  --button-shadow: rgba(58, 48, 35, 0.18);
+  --danger-soft-text: #b42318;
+  --danger-soft-border: rgba(180, 35, 24, 0.35);
+  --danger-soft-bg: rgba(180, 35, 24, 0.08);
+  --warning-soft-text: #9a6700;
+  --warning-soft-border: rgba(154, 103, 0, 0.32);
+  --warning-soft-bg: rgba(154, 103, 0, 0.1);
   color-scheme: light;
 }
 
@@ -136,11 +150,12 @@
     background: var(--glass);
     text-decoration: none;
     line-height: 1;
+    cursor: pointer;
   }
 
   .btn:hover:not(:disabled) {
     transform: translate(-2px, -2px);
-    box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.28);
+    box-shadow: 4px 4px 0 var(--button-shadow);
   }
 
   .btn:disabled {
@@ -176,16 +191,16 @@
 
   .btn-icon.text-danger,
   .btn.text-danger {
-    color: #fecaca !important;
-    border-color: rgba(255, 95, 86, 0.55);
-    background: rgba(255, 95, 86, 0.12);
+    color: var(--danger-soft-text) !important;
+    border-color: var(--danger-soft-border);
+    background: var(--danger-soft-bg);
   }
 
   .btn-icon.text-warning,
   .btn.text-warning {
-    color: #fde68a !important;
-    border-color: rgba(244, 185, 66, 0.5);
-    background: rgba(244, 185, 66, 0.14);
+    color: var(--warning-soft-text) !important;
+    border-color: var(--warning-soft-border);
+    background: var(--warning-soft-bg);
   }
 
   .app-input,

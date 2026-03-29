@@ -76,8 +76,7 @@ watch(
 </script>
 
 <template>
-  <div class="min-h-screen min-h-dvh p-4 sm:p-6">
-    <div class="grid min-h-full place-items-center">
+  <div class="flex min-h-screen min-h-dvh items-center justify-center p-4 sm:p-6">
       <div class="grid w-full max-w-5xl overflow-hidden border lg:grid-cols-[1.15fr_0.85fr]" style="border-color: var(--glass-border);">
         <section class="relative hidden min-h-[620px] overflow-hidden border-r p-10 lg:block" style="border-color: var(--glass-border); background: linear-gradient(180deg, rgba(29,78,216,0.08), rgba(0,0,0,0.08));">
           <div class="absolute inset-0 opacity-50" style="background:
@@ -170,6 +169,5 @@ watch(
           </div>
         </section>
       </div>
-    </div>
   </div>
 </template>

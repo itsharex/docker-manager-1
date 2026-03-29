@@ -247,13 +247,63 @@ const monitoringLegend = computed(() => [
   { label: metricSeries.value.rightLabel, color: metricSeries.value.rightColor },
 ]);
 
+const chartTheme = computed(() => {
+  if (appSettings.ui.theme === 'light') {
+    return {
+      text: 'rgba(22, 22, 22, 0.74)',
+      axisText: 'rgba(22, 22, 22, 0.6)',
+      axisName: 'rgba(22, 22, 22, 0.52)',
+      axisLine: 'rgba(22, 22, 22, 0.18)',
+      splitLine: 'rgba(22, 22, 22, 0.12)',
+      tooltipBg: 'rgba(247, 243, 234, 0.98)',
+      tooltipBorder: 'rgba(22, 22, 22, 0.14)',
+      tooltipText: '#161616',
+      pointerLine: 'rgba(22, 22, 22, 0.4)',
+      zoomBorder: 'rgba(22, 22, 22, 0.18)',
+      zoomBg: 'rgba(22, 22, 22, 0.05)',
+      zoomFill: 'rgba(29, 78, 216, 0.14)',
+      zoomDataLine: 'rgba(22, 22, 22, 0.34)',
+      zoomDataArea: 'rgba(22, 22, 22, 0.06)',
+      zoomSelectedLine: 'rgba(22, 22, 22, 0.72)',
+      zoomSelectedArea: 'rgba(29, 78, 216, 0.08)',
+      zoomHandle: '#1d4ed8',
+      zoomHandleMove: 'rgba(29, 78, 216, 0.74)',
+      pointBorder: '#f7f3ea',
+      shadow: '6px 6px 0 rgba(22, 22, 22, 0.14)',
+    };
+  }
+
+  return {
+    text: 'rgba(244, 244, 240, 0.7)',
+    axisText: 'rgba(244, 244, 240, 0.56)',
+    axisName: 'rgba(244, 244, 240, 0.38)',
+    axisLine: 'rgba(244, 244, 240, 0.12)',
+    splitLine: 'rgba(244, 244, 240, 0.08)',
+    tooltipBg: 'rgba(20, 20, 20, 0.96)',
+    tooltipBorder: 'rgba(244, 244, 240, 0.12)',
+    tooltipText: '#f4f4f0',
+    pointerLine: 'rgba(244, 244, 240, 0.46)',
+    zoomBorder: 'rgba(244, 244, 240, 0.12)',
+    zoomBg: 'rgba(255, 255, 255, 0.05)',
+    zoomFill: 'rgba(244, 244, 240, 0.14)',
+    zoomDataLine: 'rgba(244, 244, 240, 0.4)',
+    zoomDataArea: 'rgba(255, 255, 255, 0.08)',
+    zoomSelectedLine: 'rgba(255, 255, 255, 0.9)',
+    zoomSelectedArea: 'rgba(255, 255, 255, 0.08)',
+    zoomHandle: '#f4f4f0',
+    zoomHandleMove: 'rgba(255, 255, 255, 0.8)',
+    pointBorder: '#f8fafc',
+    shadow: '6px 6px 0 rgba(0,0,0,0.28)',
+  };
+});
+
 const monitoringChartOption = computed(() => ({
   animation: true,
   animationDuration: 280,
   animationDurationUpdate: 280,
   backgroundColor: 'transparent',
   textStyle: {
-    color: 'rgba(244, 244, 240, 0.7)',
+    color: chartTheme.value.text,
     fontFamily: 'Space Grotesk, sans-serif',
   },
   grid: {
@@ -265,17 +315,17 @@ const monitoringChartOption = computed(() => ({
   },
   tooltip: {
     trigger: 'axis',
-    backgroundColor: 'rgba(20, 20, 20, 0.96)',
-    borderColor: 'rgba(244, 244, 240, 0.12)',
+    backgroundColor: chartTheme.value.tooltipBg,
+    borderColor: chartTheme.value.tooltipBorder,
     borderWidth: 1,
     textStyle: {
-      color: '#f4f4f0',
+      color: chartTheme.value.tooltipText,
     },
-    extraCssText: 'border-radius:0; box-shadow: 6px 6px 0 rgba(0,0,0,0.28);',
+    extraCssText: `border-radius:0; box-shadow: ${chartTheme.value.shadow};`,
     axisPointer: {
       type: 'line',
       lineStyle: {
-        color: 'rgba(244, 244, 240, 0.46)',
+        color: chartTheme.value.pointerLine,
         type: 'dashed',
       },
     },
@@ -287,14 +337,14 @@ const monitoringChartOption = computed(() => ({
     data: labels.value,
     axisLine: {
       lineStyle: {
-        color: 'rgba(244, 244, 240, 0.12)',
+        color: chartTheme.value.axisLine,
       },
     },
     axisTick: {
       show: false,
     },
     axisLabel: {
-      color: 'rgba(244, 244, 240, 0.44)',
+      color: chartTheme.value.axisText,
       margin: 12,
       interval: Math.max(0, Math.floor(labels.value.length / 8) - 1),
     },
@@ -308,11 +358,11 @@ const monitoringChartOption = computed(() => ({
     max: maxMetricValue.value,
     name: `(${metricSeries.value.unit})`,
     nameTextStyle: {
-      color: 'rgba(244, 244, 240, 0.38)',
+      color: chartTheme.value.axisName,
       padding: [0, 0, 8, -6],
     },
     axisLabel: {
-      color: 'rgba(244, 244, 240, 0.56)',
+      color: chartTheme.value.axisText,
       margin: 10,
     },
     axisLine: {
@@ -323,7 +373,7 @@ const monitoringChartOption = computed(() => ({
     },
     splitLine: {
       lineStyle: {
-        color: 'rgba(244, 244, 240, 0.08)',
+        color: chartTheme.value.splitLine,
         type: 'dashed',
       },
     },
@@ -335,33 +385,33 @@ const monitoringChartOption = computed(() => ({
       bottom: 18,
       left: 34,
       right: 34,
-      borderColor: 'rgba(244, 244, 240, 0.12)',
-      backgroundColor: 'rgba(255, 255, 255, 0.05)',
-      fillerColor: 'rgba(244, 244, 240, 0.14)',
+      borderColor: chartTheme.value.zoomBorder,
+      backgroundColor: chartTheme.value.zoomBg,
+      fillerColor: chartTheme.value.zoomFill,
       dataBackground: {
         lineStyle: {
-          color: 'rgba(244, 244, 240, 0.4)',
+          color: chartTheme.value.zoomDataLine,
         },
         areaStyle: {
-          color: 'rgba(255, 255, 255, 0.08)',
+          color: chartTheme.value.zoomDataArea,
         },
       },
       selectedDataBackground: {
         lineStyle: {
-          color: 'rgba(255, 255, 255, 0.9)',
+          color: chartTheme.value.zoomSelectedLine,
         },
         areaStyle: {
-          color: 'rgba(255, 255, 255, 0.08)',
+          color: chartTheme.value.zoomSelectedArea,
         },
       },
       handleSize: 20,
       handleStyle: {
-        color: '#f4f4f0',
-        borderColor: '#f4f4f0',
+        color: chartTheme.value.zoomHandle,
+        borderColor: chartTheme.value.zoomHandle,
         shadowBlur: 0,
       },
       moveHandleStyle: {
-        color: 'rgba(255, 255, 255, 0.8)',
+        color: chartTheme.value.zoomHandleMove,
       },
       textStyle: {
         color: 'transparent',
@@ -390,7 +440,7 @@ const monitoringChartOption = computed(() => ({
       },
       itemStyle: {
         color: metricSeries.value.leftColor,
-        borderColor: '#f8fafc',
+        borderColor: chartTheme.value.pointBorder,
         borderWidth: 2,
       },
       areaStyle: {
@@ -425,7 +475,7 @@ const monitoringChartOption = computed(() => ({
       },
       itemStyle: {
         color: metricSeries.value.rightColor,
-        borderColor: '#f8fafc',
+        borderColor: chartTheme.value.pointBorder,
         borderWidth: 2,
       },
       areaStyle: {

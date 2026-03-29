@@ -216,7 +216,12 @@ onMounted(fetchVolumes);
                         <td class="name-cell">{{ vol.Name }}</td>
                         <td>{{ vol.Driver }}</td>
                         <td class="mountpoint-cell">
-                            <code class="mountpoint-value" :title="vol.Mountpoint || '-'">{{ vol.Mountpoint || '-' }}</code>
+                            <div class="mountpoint-trigger">
+                                <code class="mountpoint-value">{{ vol.Mountpoint || '-' }}</code>
+                                <div v-if="vol.Mountpoint" class="mountpoint-tooltip" role="tooltip">
+                                    {{ vol.Mountpoint }}
+                                </div>
+                            </div>
                         </td>
                         <td>{{ vol.CreatedAt ? dayjs(vol.CreatedAt).format('YYYY-MM-DD HH:mm') : '-' }}</td>
                         <td class="actions-cell">
@@ -271,6 +276,10 @@ onMounted(fetchVolumes);
 .docker-table tr:hover { background: var(--glass); }
 .name-cell { font-weight: 600; word-break: break-all; }
 .mountpoint-cell { width: 300px; max-width: 300px; }
+.mountpoint-trigger {
+    position: relative;
+    width: 100%;
+}
 .mountpoint-value {
     display: block;
     width: 100%;
@@ -279,6 +288,31 @@ onMounted(fetchVolumes);
     text-overflow: ellipsis;
     white-space: nowrap;
     box-sizing: border-box;
+}
+.mountpoint-tooltip {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 8px);
+    z-index: 20;
+    min-width: 100%;
+    max-width: min(520px, 60vw);
+    padding: 10px 12px;
+    border: 1px solid var(--glass-border);
+    background: rgba(15, 23, 42, 0.96);
+    color: #f8fafc;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    white-space: normal;
+    word-break: break-all;
+    box-shadow: 0 14px 32px rgba(15, 23, 42, 0.3);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(4px);
+    transition: opacity 0.16s ease, transform 0.16s ease;
+}
+.mountpoint-trigger:hover .mountpoint-tooltip {
+    opacity: 1;
+    transform: translateY(0);
 }
 .actions-cell { width: 100px; text-align: center; }
 .action-group { display: flex; align-items: center; justify-content: center; }

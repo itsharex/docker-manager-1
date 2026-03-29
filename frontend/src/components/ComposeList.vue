@@ -30,6 +30,8 @@ type ComposeProjectFile = {
     error?: string;
 };
 
+type ComposeWorkspaceView = 'compose' | 'logs';
+
 const projects = ref<ComposeProject[]>([]);
 const loadingProjects = ref(true);
 const COMPOSE_SEARCH_KEY = 'dock-manager.compose.search';
@@ -68,6 +70,7 @@ const logsPanel = ref<HTMLElement | null>(null);
 const logsSearchQuery = ref('');
 const selectedLogService = ref('all');
 const logsFollow = ref(true);
+const activeWorkspaceView = ref<ComposeWorkspaceView>('compose');
 const serviceActionLoadingId = ref('');
 const splitRoot = ref<HTMLElement | null>(null);
 let splitDragging = false;
@@ -141,7 +144,7 @@ const selectedFile = computed(() => files.value.find((f) => f.path === selectedF
 const selectedFileIsEditable = computed(() => !!selectedFile.value && !selectedFile.value.error && typeof selectedFile.value.content === 'string');
 const hasMultipleComposeFiles = computed(() => files.value.length > 1);
 const splitStyle = computed(() => ({
-    gridTemplateColumns: `minmax(0, ${splitRatio.value}fr) 10px minmax(320px, ${Math.max(0.5, 1 - splitRatio.value)}fr)`,
+    gridTemplateColumns: `minmax(0, ${splitRatio.value}fr) 10px minmax(280px, ${Math.max(0.56, 1 - splitRatio.value)}fr)`,
 }));
 const isDraftChanged = computed(() => {
     if (!selectedFileIsEditable.value) return false;
@@ -787,8 +790,27 @@ watch(selectedFilePath, () => {
                     </div>
                 </div>
 
-                <div ref="splitRoot" class="split" :style="splitStyle">
-                    <div class="panel">
+                <div class="workspace-toggle" role="tablist" aria-label="Compose workspace view">
+                    <button
+                        type="button"
+                        class="workspace-toggle-btn"
+                        :class="{ active: activeWorkspaceView === 'compose' }"
+                        @click="activeWorkspaceView = 'compose'"
+                    >
+                        Compose
+                    </button>
+                    <button
+                        type="button"
+                        class="workspace-toggle-btn"
+                        :class="{ active: activeWorkspaceView === 'logs' }"
+                        @click="activeWorkspaceView = 'logs'"
+                    >
+                        View logs
+                    </button>
+                </div>
+
+                <div ref="splitRoot" class="split split-single">
+                    <div v-if="activeWorkspaceView === 'compose'" class="panel">
                         <div class="panel-head">
                             <div class="compose-files-head">
                                 <h4>Compose Files</h4>
@@ -866,11 +888,7 @@ watch(selectedFilePath, () => {
                         </div>
                     </div>
 
-                    <div class="splitter" @mousedown="startSplitDrag">
-                        <span class="splitter-grip"></span>
-                    </div>
-
-                    <div class="panel">
+                    <div v-else class="panel">
                         <div class="panel-head">
                             <h4>Logs</h4>
                             <div class="log-controls">
@@ -1057,6 +1075,8 @@ watch(selectedFilePath, () => {
     justify-content: space-between;
     gap: 12px;
     align-items: flex-start;
+    min-width: 0;
+    flex-wrap: wrap;
 }
 
 .detail-header h2 {
@@ -1078,6 +1098,7 @@ watch(selectedFilePath, () => {
     flex-wrap: nowrap;
     overflow-x: auto;
     padding-bottom: 2px;
+    min-width: 0;
 }
 
 .action-cluster {
@@ -1183,6 +1204,46 @@ watch(selectedFilePath, () => {
     min-height: 0;
     flex: 1;
     align-items: stretch;
+    min-width: 0;
+}
+
+.split.split-single {
+    display: flex;
+    flex-direction: column;
+}
+
+.workspace-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    width: fit-content;
+    padding: 4px;
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--glass) 88%, transparent);
+}
+
+.workspace-toggle-btn {
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    padding: 8px 14px;
+    border-radius: 7px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.workspace-toggle-btn.active {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-hover) 60%, transparent);
+}
+
+.workspace-toggle-btn:hover:not(.active) {
+    background: color-mix(in srgb, var(--primary) 12%, var(--glass));
+    color: var(--text-main);
 }
 
 .panel {
@@ -1191,6 +1252,7 @@ watch(selectedFilePath, () => {
     display: flex;
     flex-direction: column;
     min-height: 0;
+    min-width: 0;
     overflow: hidden;
 }
 
@@ -1236,6 +1298,8 @@ watch(selectedFilePath, () => {
     gap: 10px;
     padding: 10px 12px;
     border-bottom: 1px solid var(--glass-border);
+    min-width: 0;
+    flex-wrap: wrap;
 }
 
 .panel-head h4 {
@@ -1264,6 +1328,10 @@ watch(selectedFilePath, () => {
 .hint {
     color: var(--text-muted);
     font-size: 0.8rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .panel-body {
@@ -1271,6 +1339,7 @@ watch(selectedFilePath, () => {
     overflow: auto;
     padding: 10px;
     min-height: 0;
+    flex: 1 1 0%;
 }
 
 .file-body {
@@ -1278,6 +1347,7 @@ watch(selectedFilePath, () => {
     flex-direction: column;
     gap: 12px;
     overflow: hidden;
+    flex: 1 1 0%;
 }
 
 .file-editor-layout {
@@ -1619,7 +1689,8 @@ watch(selectedFilePath, () => {
     font-size: 0.8rem;
     line-height: 1.35;
     min-width: 0;
-    min-height: 420px;
+    min-height: 0;
+    height: 100%;
 }
 
 .compose-logs {
@@ -1677,14 +1748,15 @@ watch(selectedFilePath, () => {
 
 .log-control {
     flex: 0 1 auto;
+    min-width: 0;
 }
 
 .log-service-select {
-    width: 130px;
+    width: 140px;
 }
 
 .log-search {
-    width: 150px;
+    width: min(180px, 100%);
 }
 
 .log-tail-input {
@@ -1773,6 +1845,24 @@ watch(selectedFilePath, () => {
 
     .log-controls {
         justify-content: flex-start;
+    }
+}
+
+@media (max-width: 1320px) {
+    .detail-header {
+        align-items: stretch;
+    }
+
+    .actions {
+        width: 100%;
+    }
+
+    .split {
+        grid-template-columns: 1fr;
+    }
+
+    .splitter {
+        display: none;
     }
 }
 

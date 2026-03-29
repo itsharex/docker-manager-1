@@ -4,6 +4,10 @@ import {
     Play,
     Square,
     Trash2,
+    X,
+    Minus,
+    Plus,
+    ArrowDownToLine,
     Terminal as TerminalIcon,
     FileText,
     Search,
@@ -629,6 +633,7 @@ onUnmounted(() => {
     window.removeEventListener('keydown', handleListShortcut);
     closeLogs();
     closeTerminal();
+    document.body.style.overflow = '';
 });
 
 watch(searchQuery, () => {
@@ -665,6 +670,13 @@ watch(() => appSettings.runtime.terminalFontSize, (fontSize) => {
     xterm.options.fontSize = fontSize;
     fitAddon?.fit();
 });
+
+watch(
+    [showLogsModal, showTerminalModal],
+    ([logsOpen, terminalOpen]) => {
+        document.body.style.overflow = logsOpen || terminalOpen ? 'hidden' : '';
+    }
+);
 </script>
 
 <template>
@@ -796,65 +808,115 @@ watch(() => appSettings.runtime.terminalFontSize, (fontSize) => {
             </div>
         </div>
 
-        <div v-if="showLogsModal" class="modal-backdrop" @click.self="closeLogs">
-            <div class="modal-panel glass-panel logs-modal-panel" :class="{ 'is-expanded': logsModalExpanded }">
-                <div class="modal-header">
-                    <h3>Logs: {{ activeContainer?.Names?.[0]?.replace('/', '') }}</h3>
-                    <div class="modal-actions">
-                        <button class="btn btn-ghost" @click="adjustLogsFontSize(-1)">A-</button>
-                        <button class="btn btn-ghost" @click="adjustLogsFontSize(1)">A+</button>
-                        <button class="btn btn-ghost" @click="toggleLogsSize">
-                            {{ logsModalExpanded ? 'Normal Size' : 'Expand' }}
-                        </button>
-                        <button class="btn btn-ghost" :class="{ 'is-active': logsFollow }" @click="jumpToLatestLogs">
-                            {{ logsFollow ? 'Following' : 'Jump To Latest' }}
-                        </button>
-                        <button class="btn btn-ghost" @click="closeLogs">Close</button>
+        <Teleport to="body">
+            <div v-if="showLogsModal" class="modal-backdrop" @click.self="closeLogs">
+                <div class="modal-panel glass-panel logs-modal-panel" :class="{ 'is-expanded': logsModalExpanded }">
+                    <div class="modal-header">
+                        <div class="modal-title-wrap">
+                            <div class="window-controls">
+                                <button class="window-control is-close" type="button" title="Close"
+                                    aria-label="Close logs" @click="closeLogs">
+                                    <X :size="10" />
+                                </button>
+                                <button class="window-control is-minimize" type="button"
+                                    :title="logsModalExpanded ? 'Normal Size' : 'Expand'"
+                                    :aria-label="logsModalExpanded ? 'Normal size' : 'Expand logs'"
+                                    @click="toggleLogsSize">
+                                    <Minimize2 v-if="logsModalExpanded" :size="10" />
+                                    <Maximize2 v-else :size="10" />
+                                </button>
+                                <button class="window-control is-zoom" type="button"
+                                    :title="logsFollow ? 'Following' : 'Jump To Latest'"
+                                    :aria-label="logsFollow ? 'Following logs' : 'Jump to latest log'"
+                                    @click="jumpToLatestLogs">
+                                    <RefreshCw :size="10" />
+                                </button>
+                            </div>
+                            <h3>Logs: {{ activeContainer?.Names?.[0]?.replace('/', '') }}</h3>
+                        </div>
+                        <div class="modal-actions">
+                            <button class="btn btn-ghost btn-icon modal-tool-btn" type="button"
+                                title="Decrease font size" aria-label="Decrease font size"
+                                @click="adjustLogsFontSize(-1)">
+                                <Minus :size="14" />
+                            </button>
+                            <button class="btn btn-ghost btn-icon modal-tool-btn" type="button"
+                                title="Increase font size" aria-label="Increase font size"
+                                @click="adjustLogsFontSize(1)">
+                                <Plus :size="14" />
+                            </button>
+                            <button class="btn btn-ghost btn-icon modal-tool-btn" type="button"
+                                :class="{ 'is-active': logsFollow }"
+                                :title="logsFollow ? 'Following' : 'Jump To Latest'"
+                                :aria-label="logsFollow ? 'Following logs' : 'Jump to latest log'"
+                                @click="jumpToLatestLogs">
+                                <ArrowDownToLine :size="14" />
+                            </button>
+                        </div>
                     </div>
+                    <pre ref="logsEl" class="terminal-output log-output" :style="{ fontSize: `${logsFontSize}px` }"
+                        @scroll="handleLogsScroll">{{ logsOutput }}</pre>
                 </div>
-                <pre ref="logsEl" class="terminal-output log-output" :style="{ fontSize: `${logsFontSize}px` }"
-                    @scroll="handleLogsScroll">{{ logsOutput }}</pre>
             </div>
-        </div>
 
-        <div v-if="showTerminalModal" class="modal-backdrop" @click.self="closeTerminal">
-            <div ref="terminalModalPanel" class="modal-panel glass-panel terminal-modal-panel"
-                :class="{ 'is-expanded': terminalModalExpanded, 'is-fullscreen': terminalIsFullscreen }">
-                <div class="modal-header">
-                    <div class="terminal-title-wrap">
-                        <h3>Terminal: {{ activeContainer?.Names?.[0]?.replace('/', '') }}</h3>
-                        <span class="terminal-shell-pill">{{ appSettings.runtime.terminalShell }}</span>
+            <div v-if="showTerminalModal" class="modal-backdrop" @click.self="closeTerminal">
+                <div ref="terminalModalPanel" class="modal-panel glass-panel terminal-modal-panel"
+                    :class="{ 'is-expanded': terminalModalExpanded, 'is-fullscreen': terminalIsFullscreen }">
+                    <div class="modal-header">
+                        <div class="terminal-title-wrap">
+                            <div class="window-controls">
+                                <button class="window-control is-close" type="button" title="Close"
+                                    aria-label="Close terminal" @click="closeTerminal">
+                                    <X :size="10" />
+                                </button>
+                                <button class="window-control is-minimize" type="button"
+                                    :title="terminalModalExpanded ? 'Normal Size' : 'Expand'"
+                                    :aria-label="terminalModalExpanded ? 'Normal size' : 'Expand terminal'"
+                                    @click="toggleTerminalSize">
+                                    <Minimize2 v-if="terminalModalExpanded" :size="10" />
+                                    <Maximize2 v-else :size="10" />
+                                </button>
+                                <button class="window-control is-zoom" type="button"
+                                    :title="terminalIsFullscreen ? 'Exit Fullscreen' : 'Fullscreen'"
+                                    :aria-label="terminalIsFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'"
+                                    @click="toggleTerminalFullscreen">
+                                    <Minimize2 v-if="terminalIsFullscreen" :size="10" />
+                                    <Maximize2 v-else :size="10" />
+                                </button>
+                            </div>
+                            <h3>Terminal: {{ activeContainer?.Names?.[0]?.replace('/', '') }}</h3>
+                            <span class="terminal-shell-pill">{{ appSettings.runtime.terminalShell }}</span>
+                        </div>
+                        <div class="modal-actions">
+                            <select v-model="appSettings.runtime.terminalTheme" class="terminal-theme-select">
+                                <option v-for="theme in terminalThemeOptions" :key="theme.value" :value="theme.value">
+                                    {{ theme.label }}
+                                </option>
+                            </select>
+                            <button class="btn btn-ghost btn-icon modal-tool-btn" type="button"
+                                title="Decrease font size" aria-label="Decrease font size"
+                                @click="adjustTerminalFontSize(-1)">
+                                <Minus :size="14" />
+                            </button>
+                            <button class="btn btn-ghost btn-icon modal-tool-btn" type="button"
+                                title="Increase font size" aria-label="Increase font size"
+                                @click="adjustTerminalFontSize(1)">
+                                <Plus :size="14" />
+                            </button>
+                            <button class="btn btn-ghost" @click="copyTerminalSelection">
+                                <Copy :size="14" />
+                                Copy
+                            </button>
+                            <button class="btn btn-ghost" @click="pasteIntoTerminal">
+                                <ClipboardPaste :size="14" />
+                                Paste
+                            </button>
+                        </div>
                     </div>
-                    <div class="modal-actions">
-                        <select v-model="appSettings.runtime.terminalTheme" class="terminal-theme-select">
-                            <option v-for="theme in terminalThemeOptions" :key="theme.value" :value="theme.value">
-                                {{ theme.label }}
-                            </option>
-                        </select>
-                        <button class="btn btn-ghost" @click="adjustTerminalFontSize(-1)">A-</button>
-                        <button class="btn btn-ghost" @click="adjustTerminalFontSize(1)">A+</button>
-                        <button class="btn btn-ghost" @click="copyTerminalSelection">
-                            <Copy :size="14" />
-                            Copy
-                        </button>
-                        <button class="btn btn-ghost" @click="pasteIntoTerminal">
-                            <ClipboardPaste :size="14" />
-                            Paste
-                        </button>
-                        <button class="btn btn-ghost" @click="toggleTerminalSize">
-                            {{ terminalModalExpanded ? 'Normal Size' : 'Expand' }}
-                        </button>
-                        <button class="btn btn-ghost" @click="toggleTerminalFullscreen">
-                            <Minimize2 v-if="terminalIsFullscreen" :size="14" />
-                            <Maximize2 v-else :size="14" />
-                            {{ terminalIsFullscreen ? 'Exit Fullscreen' : 'Fullscreen' }}
-                        </button>
-                        <button class="btn btn-ghost" @click="closeTerminal">Close</button>
-                    </div>
+                    <div ref="terminalEl" class="terminal-output terminal-xterm"></div>
                 </div>
-                <div ref="terminalEl" class="terminal-output terminal-xterm"></div>
             </div>
-        </div>
+        </Teleport>
     </div>
 </template>
 
@@ -1197,7 +1259,7 @@ watch(() => appSettings.runtime.terminalFontSize, (fontSize) => {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    padding: 18px;
+    padding: 2px 18px;
 }
 
 .logs-modal-panel {
@@ -1240,12 +1302,19 @@ watch(() => appSettings.runtime.terminalFontSize, (fontSize) => {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    margin: -18px -18px 0;
+    padding: 9px 18px 10px;
+    background: color-mix(in srgb, var(--bg-card) 96%, transparent);
+    border-bottom: 1px solid var(--glass-border);
 }
 
 .modal-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
     justify-content: flex-end;
 }
@@ -1255,11 +1324,79 @@ watch(() => appSettings.runtime.terminalFontSize, (fontSize) => {
     font-size: 1rem;
 }
 
+.modal-title-wrap,
 .terminal-title-wrap {
     display: flex;
     align-items: center;
     gap: 10px;
     min-width: 0;
+}
+
+.window-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-top: -4px;
+}
+
+.window-control {
+    width: 12px;
+    height: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    color: rgba(20, 20, 20, 0.68);
+    transition: transform 0.16s ease, filter 0.16s ease;
+}
+
+.window-control :deep(svg) {
+    opacity: 0;
+    transition: opacity 0.16s ease;
+}
+
+.window-controls:hover .window-control :deep(svg),
+.window-control:focus-visible :deep(svg) {
+    opacity: 1;
+}
+
+.window-control:hover {
+    transform: scale(1.08);
+    filter: brightness(0.98);
+}
+
+.window-control:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--primary) 45%, transparent);
+    outline-offset: 2px;
+}
+
+.window-control.is-close {
+    background: #ff5f57;
+}
+
+.window-control.is-minimize {
+    background: #febc2e;
+}
+
+.window-control.is-zoom {
+    background: #28c840;
+}
+
+.modal-tool-btn {
+    min-height: 32px;
+    width: 32px;
+    padding: 0;
+    color: var(--text-muted);
+}
+
+.modal-tool-btn.is-active {
+    border-color: rgba(36, 150, 237, 0.48);
+    background: color-mix(in srgb, var(--primary) 16%, var(--glass));
+    color: var(--primary);
 }
 
 .terminal-shell-pill {
@@ -1346,8 +1483,11 @@ watch(() => appSettings.runtime.terminalFontSize, (fontSize) => {
     .modal-header {
         align-items: flex-start;
         flex-direction: column;
+        position: static;
+        margin: -18px -18px 0;
     }
 
+    .modal-title-wrap,
     .terminal-title-wrap {
         flex-wrap: wrap;
     }
