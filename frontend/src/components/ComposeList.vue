@@ -791,20 +791,12 @@ watch(selectedFilePath, () => {
                 </div>
 
                 <div class="workspace-toggle" role="tablist" aria-label="Compose workspace view">
-                    <button
-                        type="button"
-                        class="workspace-toggle-btn"
-                        :class="{ active: activeWorkspaceView === 'compose' }"
-                        @click="activeWorkspaceView = 'compose'"
-                    >
+                    <button type="button" class="workspace-toggle-btn"
+                        :class="{ active: activeWorkspaceView === 'compose' }" @click="activeWorkspaceView = 'compose'">
                         Compose
                     </button>
-                    <button
-                        type="button"
-                        class="workspace-toggle-btn"
-                        :class="{ active: activeWorkspaceView === 'logs' }"
-                        @click="activeWorkspaceView = 'logs'"
-                    >
+                    <button type="button" class="workspace-toggle-btn"
+                        :class="{ active: activeWorkspaceView === 'logs' }" @click="activeWorkspaceView = 'logs'">
                         View logs
                     </button>
                 </div>
@@ -1437,7 +1429,7 @@ watch(selectedFilePath, () => {
 .file-path {
     font-size: 0.78rem;
     color: var(--text-muted);
-    padding: 6px 8px;
+    padding: 15px 8px;
     border-bottom: 1px solid var(--glass-border);
     background: var(--glass);
     display: flex;

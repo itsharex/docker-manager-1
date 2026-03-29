@@ -77,6 +77,8 @@ export const dockerApi = {
   getSystemInfo: () => api.get('/info'),
   getDiskUsage: () => api.get('/disk-usage'),
   getDashboardMetrics: () => api.get('/dashboard/metrics'),
+  checkAppUpdates: (params: { currentVersion: string; namespace: string; repoPrefix: string }) =>
+    api.get('/app-updates/check', { params }),
 
   // Docker Compose
   getComposeProjects: () => api.get('/compose/projects'),

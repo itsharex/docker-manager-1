@@ -36,6 +36,11 @@ export type AppSettings = {
         appVersion: string;
         buildDate: string;
     };
+    updates: {
+        autoCheck: boolean;
+        dockerHubNamespace: string;
+        dockerHubRepoPrefix: string;
+    };
 };
 
 const defaults: AppSettings = {
@@ -72,6 +77,11 @@ const defaults: AppSettings = {
         appVersion: '2.0',
         buildDate: '2026-03-28',
     },
+    updates: {
+        autoCheck: true,
+        dockerHubNamespace: 'ngthanhvu',
+        dockerHubRepoPrefix: 'docker-manager',
+    },
 };
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -96,6 +106,12 @@ const normalize = (raw: AppSettings): AppSettings => ({
         ...raw.notifications,
         toastDurationMs: clamp(Number(raw.notifications?.toastDurationMs || 2800), 1000, 10000),
     },
+    updates: {
+        ...raw.updates,
+        autoCheck: raw.updates?.autoCheck ?? true,
+        dockerHubNamespace: String(raw.updates?.dockerHubNamespace || 'ngthanhvu').trim(),
+        dockerHubRepoPrefix: String(raw.updates?.dockerHubRepoPrefix || 'docker-manager').trim(),
+    },
 });
 
 const loadSettings = (): AppSettings => {
@@ -112,6 +128,7 @@ const loadSettings = (): AppSettings => {
             notifications: { ...defaults.notifications, ...(parsed.notifications || {}) },
             safety: { ...defaults.safety, ...(parsed.safety || {}) },
             about: { ...defaults.about, ...(parsed.about || {}) },
+            updates: { ...defaults.updates, ...(parsed.updates || {}) },
         });
     } catch {
         return defaults;

@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { appSettings } from '../ui/settings';
+import { updates } from '../ui/updates';
+import { feedback } from '../ui/feedback';
 
 const props = defineProps<{
   systemInfo?: any;
@@ -22,6 +24,67 @@ const resetUI = () => {
   appSettings.ui.fontScale = 1;
   appSettings.ui.showSidebarStats = true;
 };
+
+const updateState = updates.state;
+const updateStatusTone = computed(() => {
+  switch (updateState.status) {
+    case 'available':
+      return 'border-color: var(--warning-soft-border); color: var(--warning-soft-text); background: var(--warning-soft-bg);';
+    case 'up-to-date':
+      return 'border-color: rgba(61, 220, 132, 0.4); color: #bbf7d0; background: rgba(61, 220, 132, 0.12);';
+    case 'error':
+      return 'border-color: var(--danger-soft-border); color: var(--danger-soft-text); background: var(--danger-soft-bg);';
+    default:
+      return 'border-color: var(--glass-border); color: var(--text-muted); background: var(--glass);';
+  }
+});
+
+const checkedAtLabel = computed(() => {
+  if (!updateState.checkedAt) return t('settings.neverChecked');
+  return new Date(updateState.checkedAt).toLocaleString();
+});
+
+const releaseDateLabel = computed(() => {
+  if (!updateState.releaseDate) return 'N/A';
+  return new Date(updateState.releaseDate).toLocaleString();
+});
+
+const statusLabel = computed(() => {
+  switch (updateState.status) {
+    case 'checking':
+      return t('settings.updateChecking');
+    case 'available':
+      return t('settings.updateAvailable');
+    case 'up-to-date':
+      return t('settings.updateUpToDate');
+    case 'error':
+      return t('settings.updateCheckFailed');
+    default:
+      return t('settings.updateIdle');
+  }
+});
+
+const checkUpdates = async (silent = false) => {
+  try {
+    await updates.refresh({ silent });
+    if (!silent) {
+      if (updateState.status === 'available') feedback.info(updateState.message);
+      else if (updateState.status === 'up-to-date') feedback.success(updateState.message);
+    }
+  } catch {
+    if (!silent) feedback.error(updateState.message);
+  }
+};
+
+const openUpdatePage = () => {
+  updates.openUpdateUrl();
+};
+
+onMounted(() => {
+  if (appSettings.updates.autoCheck && !updateState.checkedAt && updateState.status === 'idle') {
+    void checkUpdates(true);
+  }
+});
 </script>
 
 <template>
@@ -182,6 +245,71 @@ const resetUI = () => {
               <option :value="10000">10s</option>
             </select>
           </label>
+        </div>
+      </section>
+
+      <section class="glass-panel p-5">
+        <div class="mb-4 flex items-center justify-between gap-4">
+          <p class="section-heading mb-0">{{ t('settings.updates') }}</p>
+          <span class="border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]" :style="updateStatusTone">
+            {{ statusLabel }}
+          </span>
+        </div>
+
+        <div class="grid gap-4 lg:grid-cols-2">
+          <label class="flex items-center justify-between border px-4 py-3 lg:col-span-2" style="border-color: var(--glass-border); background: var(--glass);">
+            <span class="text-sm font-semibold">{{ t('settings.autoCheckUpdates') }}</span>
+            <input v-model="appSettings.updates.autoCheck" type="checkbox" class="h-5 w-5 accent-blue-600" />
+          </label>
+
+          <label class="block">
+            <span class="mb-2 block text-sm font-semibold">{{ t('settings.dockerHubNamespace') }}</span>
+            <input v-model.trim="appSettings.updates.dockerHubNamespace" type="text" class="app-input" placeholder="ngthanhvu" />
+          </label>
+
+          <label class="block">
+            <span class="mb-2 block text-sm font-semibold">{{ t('settings.dockerHubRepoPrefix') }}</span>
+            <input v-model.trim="appSettings.updates.dockerHubRepoPrefix" type="text" class="app-input" placeholder="docker-manager" />
+          </label>
+
+          <div class="border p-4 lg:col-span-2" style="border-color: var(--glass-border); background: var(--glass);">
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div>
+                <p class="text-[11px] uppercase tracking-[0.22em]" style="color: var(--text-muted);">{{ t('settings.currentVersion') }}</p>
+                <p class="mt-2 text-xl font-bold">v{{ updateState.currentVersion }}</p>
+              </div>
+              <div>
+                <p class="text-[11px] uppercase tracking-[0.22em]" style="color: var(--text-muted);">{{ t('settings.latestVersion') }}</p>
+                <p class="mt-2 text-xl font-bold">{{ updateState.latestVersion ? `v${updateState.latestVersion}` : 'N/A' }}</p>
+              </div>
+              <div>
+                <p class="text-[11px] uppercase tracking-[0.22em]" style="color: var(--text-muted);">{{ t('settings.lastChecked') }}</p>
+                <p class="mt-2 text-sm font-medium">{{ checkedAtLabel }}</p>
+              </div>
+              <div>
+                <p class="text-[11px] uppercase tracking-[0.22em]" style="color: var(--text-muted);">{{ t('settings.latestPublished') }}</p>
+                <p class="mt-2 text-sm font-medium">{{ releaseDateLabel }}</p>
+              </div>
+            </div>
+
+            <p class="mt-4 text-sm leading-6" style="color: var(--text-muted);">
+              {{ updateState.message || t('settings.updateHelp') }}
+            </p>
+          </div>
+
+          <div class="flex flex-wrap gap-3 lg:col-span-2">
+            <button class="btn btn-ghost" type="button" :disabled="updateState.status === 'checking'" @click="checkUpdates()">
+              {{ updateState.status === 'checking' ? t('settings.updateChecking') : t('settings.checkUpdates') }}
+            </button>
+            <button
+              class="btn btn-primary"
+              type="button"
+              :disabled="updateState.status !== 'available'"
+              @click="openUpdatePage"
+            >
+              {{ t('settings.updateNow') }}
+            </button>
+          </div>
         </div>
       </section>
 

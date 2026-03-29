@@ -153,13 +153,13 @@ watch(() => appSettings.general.autoRefreshMs, () => {
             </div>
             <div>
               <p class="text-[11px] uppercase tracking-[0.24em]" style="color: var(--text-muted);">{{ t('nav.opsPanel')
-                }}</p>
+              }}</p>
               <div class="text-xl font-bold tracking-tight">Dock Manager</div>
             </div>
           </div>
-          <p class="max-w-[220px] text-sm leading-6" style="color: var(--text-muted);">
+          <!-- <p class="max-w-[220px] text-sm leading-6" style="color: var(--text-muted);">
             {{ t('nav.shellDescription') }}
-          </p>
+          </p> -->
         </div>
 
         <nav class="flex flex-1 flex-col gap-2 p-4">
@@ -211,7 +211,7 @@ watch(() => appSettings.general.autoRefreshMs, () => {
                 {{ activeTabMeta ? t(activeTabMeta.nameKey) : '' }}
               </p>
               <h1 class="text-3xl font-bold tracking-tight sm:text-4xl">{{ activeTabMeta ? t(activeTabMeta.nameKey) : ''
-                }}</h1>
+              }}</h1>
               <p v-if="activeTab === 'dashboard'" class="mt-2 max-w-2xl text-sm leading-6"
                 style="color: var(--text-muted);">
                 {{ t('nav.dashboardSubtitle') }}
