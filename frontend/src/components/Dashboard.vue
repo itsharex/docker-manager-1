@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import {
   Container,
   Box,
@@ -20,6 +21,7 @@ import {
 } from 'echarts/components';
 import { appSettings } from '../ui/settings';
 import { dockerApi } from '../api';
+const { t } = useI18n();
 
 use([
   CanvasRenderer,
@@ -145,7 +147,7 @@ const diskWriteData = computed(() => activeMetricPoints.value.map((point) => toN
 const gauges = computed(() => ([
   {
     key: 'load',
-    label: 'Load',
+    label: t('dashboard.load'),
     percent: loadPercent.value,
     value: `${loadAvg.value}`,
     unit: '',
@@ -153,7 +155,7 @@ const gauges = computed(() => ([
   },
   {
     key: 'cpu',
-    label: 'CPU',
+    label: t('dashboard.cpu'),
     percent: cpuPercent.value,
     value: `${cpuPercent.value}`,
     unit: '%',
@@ -161,7 +163,7 @@ const gauges = computed(() => ([
   },
   {
     key: 'memory',
-    label: 'Memory',
+    label: t('dashboard.memory'),
     percent: memPercent.value,
     value: `${memPercent.value}`,
     unit: '%',
@@ -173,8 +175,8 @@ const metricSeries = computed(() => {
   if (monitorMode.value === 'network') {
     return {
       unit: 'KB/s',
-      leftLabel: 'Up',
-      rightLabel: 'Down',
+      leftLabel: t('dashboard.up'),
+      rightLabel: t('dashboard.down'),
       leftColor: '#3ddc84',
       rightColor: '#f4b942',
       leftAreaStart: 'rgba(61, 220, 132, 0.22)',
@@ -188,8 +190,8 @@ const metricSeries = computed(() => {
 
   return {
     unit: 'KB/s',
-    leftLabel: 'Read',
-    rightLabel: 'Write',
+    leftLabel: t('dashboard.read'),
+    rightLabel: t('dashboard.write'),
     leftColor: '#58a6ff',
     rightColor: '#ff7a59',
     leftAreaStart: 'rgba(88, 166, 255, 0.22)',
@@ -225,18 +227,18 @@ const maxMetricValue = computed(() => {
 const monitoringPills = computed(() => {
   if (monitorMode.value === 'network') {
     return [
-      { label: 'Up', value: formatRate(latestLeftValue.value) },
-      { label: 'Down', value: formatRate(latestRightValue.value) },
-      { label: 'Total sent', value: formatBytes(totalLeftValue.value) },
-      { label: 'Total received', value: formatBytes(totalRightValue.value) },
+      { label: t('dashboard.up'), value: formatRate(latestLeftValue.value) },
+      { label: t('dashboard.down'), value: formatRate(latestRightValue.value) },
+      { label: t('dashboard.totalSent'), value: formatBytes(totalLeftValue.value) },
+      { label: t('dashboard.totalReceived'), value: formatBytes(totalRightValue.value) },
     ];
   }
 
   return [
-    { label: 'Read', value: formatRate(latestLeftValue.value) },
-    { label: 'Write', value: formatRate(latestRightValue.value) },
-    { label: 'Total read', value: formatBytes(totalLeftValue.value) },
-    { label: 'Total write', value: formatBytes(totalRightValue.value) },
+    { label: t('dashboard.read'), value: formatRate(latestLeftValue.value) },
+    { label: t('dashboard.write'), value: formatRate(latestRightValue.value) },
+    { label: t('dashboard.totalRead'), value: formatBytes(totalLeftValue.value) },
+    { label: t('dashboard.totalWrite'), value: formatBytes(totalRightValue.value) },
   ];
 });
 
@@ -492,10 +494,10 @@ watch(activeNetworkInterfaces, (interfaces) => {
   <div class="flex flex-col gap-6">
     <div class="grid gap-4 xl:grid-cols-4">
       <div v-for="card in [
-        { key: 'containers', label: 'Containers', value: `${systemInfo?.ContainersRunning || 0} / ${systemInfo?.Containers || 0}`, detail: 'Running / Total', icon: Container, tone: 'var(--primary)' },
-        { key: 'images', label: 'Images', value: `${systemInfo?.Images || 0}`, detail: 'Local artifacts', icon: Box, tone: 'var(--success)' },
-        { key: 'volumes', label: 'Volumes', value: `${volumeCount}`, detail: 'Docker volumes', icon: HardDrive, tone: 'var(--warning)' },
-        { key: 'networks', label: 'Networks', value: `${networkCount}`, detail: 'Docker networks', icon: Network, tone: '#58a6ff' },
+        { key: 'containers', label: t('dashboard.containers'), value: `${systemInfo?.ContainersRunning || 0} / ${systemInfo?.Containers || 0}`, detail: t('dashboard.runningTotal'), icon: Container, tone: 'var(--primary)' },
+        { key: 'images', label: t('dashboard.images'), value: `${systemInfo?.Images || 0}`, detail: t('dashboard.localArtifacts'), icon: Box, tone: 'var(--success)' },
+        { key: 'volumes', label: t('dashboard.volumes'), value: `${volumeCount}`, detail: t('dashboard.dockerVolumes'), icon: HardDrive, tone: 'var(--warning)' },
+        { key: 'networks', label: t('dashboard.networks'), value: `${networkCount}`, detail: t('dashboard.dockerNetworks'), icon: Network, tone: '#58a6ff' },
       ]" :key="card.key" class="glass-panel p-5">
         <div class="mb-6 flex items-start justify-between gap-4">
           <div>
@@ -514,7 +516,7 @@ watch(activeNetworkInterfaces, (interfaces) => {
 
     <div class="grid gap-6 2xl:grid-cols-[360px_minmax(0,1fr)]">
       <section class="glass-panel p-5">
-        <p class="section-heading">Status Rings</p>
+        <p class="section-heading">{{ t('dashboard.statusRings') }}</p>
         <div class="grid gap-5 md:grid-cols-3 2xl:grid-cols-1">
           <div v-for="g in gauges" :key="g.key" class="border p-4 text-center" style="border-color: var(--glass-border); background: var(--glass);">
             <div
@@ -538,10 +540,10 @@ watch(activeNetworkInterfaces, (interfaces) => {
           <div>
             <div class="mb-2 flex items-center gap-2 text-lg font-semibold">
               <Activity :size="18" />
-              Monitoring
+              {{ t('dashboard.monitoring') }}
             </div>
             <p class="text-sm leading-6" style="color: var(--text-muted);">
-              Live throughput history with less decoration and stronger data contrast.
+              {{ t('dashboard.monitoringDesc') }}
             </p>
           </div>
 
@@ -552,22 +554,22 @@ watch(activeNetworkInterfaces, (interfaces) => {
                 :style="monitorMode === 'network' ? 'background: var(--primary); color: white;' : 'background: var(--glass); color: var(--text-muted);'"
                 @click="monitorMode = 'network'"
               >
-                Network
+                {{ t('dashboard.network') }}
               </button>
               <button
                 class="px-4 py-2 text-sm font-semibold"
                 :style="monitorMode === 'disk' ? 'background: var(--primary); color: white;' : 'background: var(--glass); color: var(--text-muted);'"
                 @click="monitorMode = 'disk'"
               >
-                Disk I/O
+                {{ t('dashboard.disk') }}
               </button>
             </div>
 
             <label v-if="monitorMode === 'network'" class="relative flex min-w-[190px] items-center border pr-10" style="border-color: var(--glass-border); background: var(--glass);">
-              <span class="px-3 text-xs uppercase tracking-[0.2em]" style="color: var(--text-muted);">Iface</span>
+              <span class="px-3 text-xs uppercase tracking-[0.2em]" style="color: var(--text-muted);">{{ t('dashboard.iface') }}</span>
               <select v-model="networkCard" class="app-select border-0 bg-transparent py-2 pr-8 pl-0 shadow-none focus:shadow-none">
                 <option v-for="option in availableNetworkCards" :key="option" :value="option">
-                  {{ option === 'all' ? 'All' : option }}
+                  {{ option === 'all' ? t('dashboard.all') : option }}
                 </option>
               </select>
               <ChevronDown class="pointer-events-none absolute right-3" :size="16" style="color: var(--text-muted);" />

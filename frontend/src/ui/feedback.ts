@@ -1,5 +1,6 @@
 import { reactive } from 'vue';
 import { appSettings } from './settings';
+import { i18n } from '../i18n';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
@@ -72,10 +73,10 @@ const confirmAction = (opts: {
         }
 
         state.confirm.open = true;
-        state.confirm.title = opts.title || 'Please Confirm';
+        state.confirm.title = opts.title || i18n.global.t('common.pleaseConfirm');
         state.confirm.message = opts.message;
-        state.confirm.confirmText = opts.confirmText || 'Confirm';
-        state.confirm.cancelText = opts.cancelText || 'Cancel';
+        state.confirm.confirmText = opts.confirmText || i18n.global.t('common.confirm');
+        state.confirm.cancelText = opts.cancelText || i18n.global.t('common.cancel');
         state.confirm.danger = !!opts.danger;
         state.confirm.requireText = opts.requireText || '';
         state.confirm.inputText = '';
@@ -102,7 +103,7 @@ export const feedback = {
     error: (message: string) => {
         const output = appSettings.notifications.showDetailedErrors
             ? message
-            : (message.split(':')[0] || 'Action failed');
+            : (message.split(':')[0] || i18n.global.t('common.actionFailed'));
         pushToast(output, 'error', Math.max(appSettings.notifications.toastDurationMs, 3200));
     },
     info: (message: string) => pushToast(message, 'info', appSettings.notifications.toastDurationMs),

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import {
   LayoutDashboard,
   Container,
@@ -24,6 +25,7 @@ import NetworkList from '../components/NetworkList.vue';
 import ComposeList from '../components/ComposeList.vue';
 import SettingsPanel from '../components/SettingsPanel.vue';
 
+const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const systemInfo = ref<any>(null);
@@ -31,13 +33,13 @@ const resourceCounts = ref<{ volumes: number; networks: number }>({ volumes: 0, 
 let statsTimer: number | null = null;
 
 const tabs = [
-  { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
-  { id: 'containers', name: 'Containers', icon: Container },
-  { id: 'images', name: 'Images', icon: Box },
-  { id: 'volumes', name: 'Volumes', icon: HardDrive },
-  { id: 'networks', name: 'Networks', icon: Network },
-  { id: 'compose', name: 'Compose', icon: Layers },
-  { id: 'settings', name: 'Settings', icon: Settings },
+  { id: 'dashboard', nameKey: 'nav.dashboard', icon: LayoutDashboard },
+  { id: 'containers', nameKey: 'nav.containers', icon: Container },
+  { id: 'images', nameKey: 'nav.images', icon: Box },
+  { id: 'volumes', nameKey: 'nav.volumes', icon: HardDrive },
+  { id: 'networks', nameKey: 'nav.networks', icon: Network },
+  { id: 'compose', nameKey: 'nav.compose', icon: Layers },
+  { id: 'settings', nameKey: 'nav.settings', icon: Settings },
 ];
 
 const validTabIds = new Set(tabs.map((tab) => tab.id));
@@ -152,12 +154,12 @@ watch(() => appSettings.general.autoRefreshMs, () => {
               <i class="fa-brands fa-docker" aria-hidden="true"></i>
             </div>
             <div>
-              <p class="text-[11px] uppercase tracking-[0.24em]" style="color: var(--text-muted);">Ops Panel</p>
+              <p class="text-[11px] uppercase tracking-[0.24em]" style="color: var(--text-muted);">{{ t('nav.opsPanel') }}</p>
               <div class="text-xl font-bold tracking-tight">Dock Manager</div>
             </div>
           </div>
           <p class="max-w-[220px] text-sm leading-6" style="color: var(--text-muted);">
-            Docker control surface with a sharper, utilitarian layout.
+            {{ t('nav.shellDescription') }}
           </p>
         </div>
 
@@ -174,7 +176,7 @@ watch(() => appSettings.general.autoRefreshMs, () => {
           >
             <span class="flex items-center gap-3">
               <component :is="tab.icon" :size="18" />
-              {{ tab.name }}
+              {{ t(tab.nameKey) }}
             </span>
             <span class="font-mono text-[11px]">ALT+{{ index + 1 }}</span>
           </button>
@@ -185,20 +187,20 @@ watch(() => appSettings.general.autoRefreshMs, () => {
             <div class="flex items-center justify-between border px-3 py-2" style="border-color: var(--glass-border);">
               <span class="flex items-center gap-2" style="color: var(--text-muted);">
                 <Cpu :size="15" />
-                CPU
+                {{ t('nav.cpu') }}
               </span>
               <strong>{{ systemInfo.NCPU }}</strong>
             </div>
             <div class="flex items-center justify-between border px-3 py-2" style="border-color: var(--glass-border);">
               <span class="flex items-center gap-2" style="color: var(--text-muted);">
                 <Database :size="15" />
-                Memory
+                {{ t('nav.memory') }}
               </span>
               <strong>{{ (systemInfo.MemTotal / 1024 / 1024 / 1024).toFixed(1) }} GB</strong>
             </div>
           </div>
           <div class="font-mono text-xs uppercase tracking-[0.16em]" style="color: var(--text-muted);">
-            Build v{{ appSettings.about.appVersion }}
+            {{ t('nav.build') }} v{{ appSettings.about.appVersion }}
           </div>
         </div>
       </div>
@@ -213,24 +215,24 @@ watch(() => appSettings.general.autoRefreshMs, () => {
           <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
             <div>
               <p class="mb-2 text-[11px] uppercase tracking-[0.24em]" style="color: var(--text-muted);">
-                {{ activeTabMeta?.name }}
+                {{ activeTabMeta ? t(activeTabMeta.nameKey) : '' }}
               </p>
-              <h1 class="text-3xl font-bold tracking-tight sm:text-4xl">{{ activeTabMeta?.name }}</h1>
+              <h1 class="text-3xl font-bold tracking-tight sm:text-4xl">{{ activeTabMeta ? t(activeTabMeta.nameKey) : '' }}</h1>
               <p v-if="activeTab === 'dashboard'" class="mt-2 max-w-2xl text-sm leading-6" style="color: var(--text-muted);">
-                Real-time system health, resource counts, and throughput tracking for your Docker runtime.
+                {{ t('nav.dashboardSubtitle') }}
               </p>
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
               <div class="border px-4 py-2 text-sm" style="border-color: var(--glass-border); background: var(--glass);">
-                <span style="color: var(--text-muted);">User</span>
+                <span style="color: var(--text-muted);">{{ t('nav.user') }}</span>
                 <strong class="ml-2">{{ authState.user?.username }}</strong>
               </div>
               <div v-if="systemInfo" class="flex items-center gap-3 border px-4 py-2 text-sm" style="border-color: var(--glass-border); background: var(--glass);">
                 <span class="h-2.5 w-2.5 animate-pulse" style="background: var(--success);"></span>
                 Docker {{ systemInfo.ServerVersion }}
               </div>
-              <button class="btn text-danger" type="button" @click="logout">Logout</button>
+              <button class="btn text-danger" type="button" @click="logout">{{ t('nav.logout') }}</button>
             </div>
           </div>
         </header>
@@ -246,7 +248,7 @@ watch(() => appSettings.general.autoRefreshMs, () => {
                 : 'border-color: var(--glass-border); background: var(--glass); color: var(--text-muted);'"
               @click="setActiveTab(tab.id)"
             >
-              {{ tab.name }}
+              {{ t(tab.nameKey) }}
             </button>
           </div>
         </div>

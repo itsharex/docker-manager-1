@@ -69,8 +69,8 @@ const defaults: AppSettings = {
         protectedResources: '',
     },
     about: {
-        appVersion: '0.2',
-        buildDate: '2026-03-17',
+        appVersion: '2.0',
+        buildDate: '2026-03-28',
     },
 };
 
@@ -121,6 +121,7 @@ const loadSettings = (): AppSettings => {
 const applySettings = (settings: AppSettings) => {
     const root = document.documentElement;
     root.setAttribute('data-theme', settings.ui.theme);
+    root.setAttribute('lang', settings.general.language);
     root.style.setProperty('--font-scale', String(settings.ui.fontScale));
     root.style.setProperty('--density-scale', settings.ui.density === 'compact' ? '0.92' : '1');
 };

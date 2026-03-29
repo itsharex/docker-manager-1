@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { LockKeyhole, ShieldCheck, UserRound } from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps<{
   setupRequired: boolean;
@@ -11,6 +12,7 @@ const emit = defineEmits<{
   login: [payload: { username: string; password: string }];
   setup: [payload: { username: string; password: string }];
 }>();
+const { t } = useI18n();
 
 const username = ref('');
 const password = ref('');
@@ -18,35 +20,35 @@ const confirmPassword = ref('');
 const localError = ref('');
 
 const title = computed(() =>
-  props.setupRequired ? 'Create your admin account' : 'Sign in to Dock Manager'
+  props.setupRequired ? t('auth.titleSetup') : t('auth.titleLogin')
 );
 
 const description = computed(() =>
   props.setupRequired
-    ? 'First launch detected. Create the initial account stored in SQLite to secure the panel.'
-    : 'Use your account to access containers, compose stacks, metrics, and terminal sessions.'
+    ? t('auth.descriptionSetup')
+    : t('auth.descriptionLogin')
 );
 
 const submitLabel = computed(() => {
-  if (props.loading) return props.setupRequired ? 'Creating account...' : 'Signing in...';
-  return props.setupRequired ? 'Create account' : 'Sign in';
+  if (props.loading) return props.setupRequired ? t('auth.creatingAccount') : t('auth.signingIn');
+  return props.setupRequired ? t('auth.createAccount') : t('auth.signIn');
 });
 
 const submit = () => {
   localError.value = '';
 
   if (username.value.trim().length < 3) {
-    localError.value = 'Username must be at least 3 characters.';
+    localError.value = t('auth.usernameError');
     return;
   }
 
   if (password.value.trim().length < 8) {
-    localError.value = 'Password must be at least 8 characters.';
+    localError.value = t('auth.passwordError');
     return;
   }
 
   if (props.setupRequired && password.value !== confirmPassword.value) {
-    localError.value = 'Password confirmation does not match.';
+    localError.value = t('auth.confirmPasswordError');
     return;
   }
 
@@ -86,10 +88,10 @@ watch(
             <div>
               <p class="mb-3 text-[11px] uppercase tracking-[0.26em]" style="color: var(--text-muted);">Docker Access Node</p>
               <h1 class="max-w-md text-5xl font-bold leading-none tracking-tight">
-                Secure control without the glossy dashboard look.
+                {{ t('auth.leftTitle') }}
               </h1>
               <p class="mt-6 max-w-lg text-base leading-7" style="color: var(--text-muted);">
-                This panel is intentionally sharper and more operational: clearer hierarchy, stronger edges, and less decorative noise.
+                {{ t('auth.leftDescription') }}
               </p>
             </div>
 
@@ -97,20 +99,20 @@ watch(
               <div class="flex items-start gap-4 border p-4" style="border-color: var(--glass-border); background: var(--glass);">
                 <ShieldCheck class="mt-0.5" :size="18" style="color: var(--success);" />
                 <div>
-                  <p class="font-semibold">Protected session flow</p>
+                  <p class="font-semibold">{{ t('auth.protectedFlow') }}</p>
                   <p class="mt-1 text-sm leading-6" style="color: var(--text-muted);">
-                    Authentication gates container actions, shell access, and destructive operations.
+                    {{ t('auth.protectedFlowDesc') }}
                   </p>
                 </div>
               </div>
               <div class="grid grid-cols-2 gap-4">
                 <div class="border p-4" style="border-color: var(--glass-border); background: var(--glass);">
-                  <p class="text-[11px] uppercase tracking-[0.22em]" style="color: var(--text-muted);">Surface</p>
-                  <p class="mt-2 text-2xl font-bold">CLI-like</p>
+                  <p class="text-[11px] uppercase tracking-[0.22em]" style="color: var(--text-muted);">{{ t('auth.surface') }}</p>
+                  <p class="mt-2 text-2xl font-bold">{{ t('auth.cliLike') }}</p>
                 </div>
                 <div class="border p-4" style="border-color: var(--glass-border); background: var(--glass);">
-                  <p class="text-[11px] uppercase tracking-[0.22em]" style="color: var(--text-muted);">Theme</p>
-                  <p class="mt-2 text-2xl font-bold">Rigid UI</p>
+                  <p class="text-[11px] uppercase tracking-[0.22em]" style="color: var(--text-muted);">{{ t('auth.theme') }}</p>
+                  <p class="mt-2 text-2xl font-bold">{{ t('auth.rigidUi') }}</p>
                 </div>
               </div>
             </div>
@@ -125,7 +127,7 @@ watch(
                   <ShieldCheck :size="22" />
                 </div>
                 <div>
-                  <p class="text-[11px] uppercase tracking-[0.24em]" style="color: var(--text-muted);">Secure Access</p>
+                  <p class="text-[11px] uppercase tracking-[0.24em]" style="color: var(--text-muted);">{{ t('auth.secureAccess') }}</p>
                   <h2 class="text-3xl font-bold tracking-tight">{{ title }}</h2>
                 </div>
               </div>
@@ -134,7 +136,7 @@ watch(
 
             <form class="space-y-4" @submit.prevent="submit">
               <label class="block">
-                <span class="mb-2 block text-sm font-semibold">Username</span>
+                <span class="mb-2 block text-sm font-semibold">{{ t('auth.username') }}</span>
                 <div class="flex items-center gap-3 border px-4 py-3" style="border-color: var(--glass-border); background: var(--input-bg);">
                   <UserRound :size="16" style="color: var(--text-muted);" />
                   <input v-model="username" class="min-w-0 flex-1 bg-transparent outline-none" type="text" autocomplete="username" placeholder="admin" :disabled="loading" />
@@ -142,7 +144,7 @@ watch(
               </label>
 
               <label class="block">
-                <span class="mb-2 block text-sm font-semibold">Password</span>
+                <span class="mb-2 block text-sm font-semibold">{{ t('auth.password') }}</span>
                 <div class="flex items-center gap-3 border px-4 py-3" style="border-color: var(--glass-border); background: var(--input-bg);">
                   <LockKeyhole :size="16" style="color: var(--text-muted);" />
                   <input v-model="password" class="min-w-0 flex-1 bg-transparent outline-none" type="password" autocomplete="current-password" placeholder="••••••••" :disabled="loading" />
@@ -150,7 +152,7 @@ watch(
               </label>
 
               <label v-if="setupRequired" class="block">
-                <span class="mb-2 block text-sm font-semibold">Confirm password</span>
+                <span class="mb-2 block text-sm font-semibold">{{ t('auth.confirmPassword') }}</span>
                 <div class="flex items-center gap-3 border px-4 py-3" style="border-color: var(--glass-border); background: var(--input-bg);">
                   <LockKeyhole :size="16" style="color: var(--text-muted);" />
                   <input v-model="confirmPassword" class="min-w-0 flex-1 bg-transparent outline-none" type="password" autocomplete="new-password" placeholder="Repeat password" :disabled="loading" />

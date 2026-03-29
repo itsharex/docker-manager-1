@@ -2,12 +2,14 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { AxiosError } from 'axios';
+import { useI18n } from 'vue-i18n';
 import AuthScreen from '../components/AuthScreen.vue';
 import { feedback } from '../ui/feedback';
 import { authState, signIn, setupAccount } from '../ui/auth';
 
 const router = useRouter();
 const submitting = ref(false);
+const { t } = useI18n();
 
 const extractErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof AxiosError) {
@@ -22,10 +24,10 @@ const submitLogin = async (payload: { username: string; password: string }) => {
   submitting.value = true;
   try {
     const data = await signIn(payload);
-    feedback.success(`Welcome back, ${data?.user?.username || payload.username}.`);
+    feedback.success(t('auth.welcomeBack', { name: data?.user?.username || payload.username }));
     await router.replace({ name: 'app', params: { tab: 'dashboard' } });
   } catch (error) {
-    feedback.error(extractErrorMessage(error, 'Sign in failed.'));
+    feedback.error(extractErrorMessage(error, t('auth.signInFailed')));
   } finally {
     submitting.value = false;
   }
@@ -35,10 +37,10 @@ const submitSetup = async (payload: { username: string; password: string }) => {
   submitting.value = true;
   try {
     const data = await setupAccount(payload);
-    feedback.success(`Admin account ${data?.user?.username || payload.username} created.`);
+    feedback.success(t('auth.adminCreated', { name: data?.user?.username || payload.username }));
     await router.replace({ name: 'app', params: { tab: 'dashboard' } });
   } catch (error) {
-    feedback.error(extractErrorMessage(error, 'Initial setup failed.'));
+    feedback.error(extractErrorMessage(error, t('auth.setupFailed')));
   } finally {
     submitting.value = false;
   }

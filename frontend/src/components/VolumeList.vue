@@ -220,10 +220,12 @@ onMounted(fetchVolumes);
                         </td>
                         <td>{{ vol.CreatedAt ? dayjs(vol.CreatedAt).format('YYYY-MM-DD HH:mm') : '-' }}</td>
                         <td class="actions-cell">
-                            <button class="btn-icon btn-ghost text-danger" :disabled="bulkDeleting || !!deletingName || pruning" title="Remove" @click="removeVolume(vol.Name)">
-                                <RefreshCw v-if="deletingName === vol.Name" :size="16" class="animate-spin" />
-                                <Trash2 v-else :size="16" />
-                            </button>
+                            <div class="action-group">
+                                <button class="action-btn action-danger" :disabled="bulkDeleting || !!deletingName || pruning" title="Remove" @click="removeVolume(vol.Name)">
+                                    <RefreshCw v-if="deletingName === vol.Name" :size="16" class="animate-spin" />
+                                    <Trash2 v-else :size="16" />
+                                </button>
+                            </div>
                         </td>
                     </tr>
                     <tr v-if="volumes.length === 0 && !loading">
@@ -278,7 +280,39 @@ onMounted(fetchVolumes);
     white-space: nowrap;
     box-sizing: border-box;
 }
-.actions-cell { text-align: right; width: 100px; }
+.actions-cell { width: 100px; text-align: center; }
+.action-group { display: flex; align-items: center; justify-content: center; }
+.action-btn {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+.action-btn:hover {
+    transform: translateY(-1px);
+    color: var(--text-main);
+}
+.action-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+}
+.action-danger {
+    color: #fda4af;
+    border-color: rgba(239, 68, 68, 0.32);
+    background: rgba(239, 68, 68, 0.08);
+}
+.action-danger:hover {
+    background: rgba(239, 68, 68, 0.16);
+    border-color: rgba(239, 68, 68, 0.55);
+}
 .empty-state { text-align: center; color: var(--text-muted); padding: 56px 0; }
 .pagination { padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .pager-meta, .pager-actions { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 0.82rem; }

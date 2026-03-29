@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { feedback } from '../ui/feedback';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 </script>
 
 <template>
@@ -9,7 +12,7 @@ import { feedback } from '../ui/feedback';
             <p>{{ feedback.state.confirm.message }}</p>
             <div v-if="feedback.state.confirm.requireText" class="confirm-input-wrap">
                 <label>
-                    Type <code>{{ feedback.state.confirm.requireText }}</code> to continue
+                    {{ t('common.typeToContinue', { value: feedback.state.confirm.requireText }) }}
                 </label>
                 <input
                     v-model="feedback.state.confirm.inputText"
