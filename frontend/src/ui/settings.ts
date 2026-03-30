@@ -74,8 +74,8 @@ const defaults: AppSettings = {
         protectedResources: '',
     },
     about: {
-        appVersion: '2.0',
-        buildDate: '2026-03-28',
+        appVersion: '2.1',
+        buildDate: '2026-03-30',
     },
     updates: {
         autoCheck: true,

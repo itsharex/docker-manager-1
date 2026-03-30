@@ -143,9 +143,6 @@ const reloadDetailsWithGuard = async (projectName: string, message: string) => {
 const selectedFile = computed(() => files.value.find((f) => f.path === selectedFilePath.value) || null);
 const selectedFileIsEditable = computed(() => !!selectedFile.value && !selectedFile.value.error && typeof selectedFile.value.content === 'string');
 const hasMultipleComposeFiles = computed(() => files.value.length > 1);
-const splitStyle = computed(() => ({
-    gridTemplateColumns: `minmax(0, ${splitRatio.value}fr) 10px minmax(280px, ${Math.max(0.56, 1 - splitRatio.value)}fr)`,
-}));
 const isDraftChanged = computed(() => {
     if (!selectedFileIsEditable.value) return false;
     return fileDraft.value !== (selectedFile.value?.content || '');
@@ -372,12 +369,6 @@ const handleSplitDrag = (event: MouseEvent) => {
     if (!rect.width) return;
     const nextRatio = (event.clientX - rect.left) / rect.width;
     splitRatio.value = Math.min(0.78, Math.max(0.4, nextRatio));
-};
-
-const startSplitDrag = () => {
-    splitDragging = true;
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
 };
 
 const confirmDiscardChanges = async (message: string) => {

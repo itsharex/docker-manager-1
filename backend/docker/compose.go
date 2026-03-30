@@ -369,12 +369,17 @@ func listProjectFiles(containers []types.Container) []composeFileDescriptor {
 	}
 
 	labels := containers[0].Labels
+	workingDir := strings.TrimSpace(labels["com.docker.compose.project.working_dir"])
 	composePaths := parseConfigFiles(labels["com.docker.compose.project.config_files"])
 
 	out := make([]composeFileDescriptor, 0, len(composePaths))
 	seen := map[string]struct{}{}
 
 	for _, path := range composePaths {
+		path = resolveComposeFilePath(workingDir, path)
+		if path == "" {
+			continue
+		}
 		if _, ok := seen[path]; ok {
 			continue
 		}
@@ -383,6 +388,23 @@ func listProjectFiles(containers []types.Container) []composeFileDescriptor {
 	}
 
 	return out
+}
+
+func resolveComposeFilePath(workingDir string, composePath string) string {
+	composePath = strings.TrimSpace(composePath)
+	if composePath == "" {
+		return ""
+	}
+
+	if filepath.IsAbs(composePath) {
+		return filepath.Clean(composePath)
+	}
+
+	if workingDir == "" {
+		return filepath.Clean(composePath)
+	}
+
+	return filepath.Clean(filepath.Join(workingDir, composePath))
 }
 
 func validateComposeYAML(content string) error {
