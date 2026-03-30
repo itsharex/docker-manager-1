@@ -6,7 +6,7 @@ export type AppSettings = {
     general: {
         autoRefreshMs: number;
         confirmDestructive: boolean;
-        language: 'vi' | 'en';
+        language: 'vi' | 'en' | 'zh';
         timeFormat: '24h' | '12h';
     };
     ui: {

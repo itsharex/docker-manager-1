@@ -3,6 +3,7 @@ import { createI18n } from 'vue-i18n';
 import { appSettings } from '../ui/settings';
 import vi from './vi';
 import en from './en';
+import zh from './zh';
 
 export const i18n = createI18n({
   legacy: false,
@@ -11,6 +12,7 @@ export const i18n = createI18n({
   messages: {
     vi,
     en,
+    zh,
   },
 });
 

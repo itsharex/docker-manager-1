@@ -79,6 +79,8 @@ export const dockerApi = {
   getDashboardMetrics: () => api.get('/dashboard/metrics'),
   checkAppUpdates: (params: { currentVersion: string; namespace: string; repoPrefix: string }) =>
     api.get('/app-updates/check', { params }),
+  applyAppUpdate: (payload: { namespace: string; repoPrefix: string; targetVersion?: string }) =>
+    api.post('/app-updates/apply', payload),
 
   // Docker Compose
   getComposeProjects: () => api.get('/compose/projects'),

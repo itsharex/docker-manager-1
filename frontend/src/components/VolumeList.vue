@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import { HardDrive, Trash2, RefreshCw, BrushCleaning } from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
 import { dockerApi } from '../api';
 import { feedback } from '../ui/feedback';
 import { appSettings } from '../ui/settings';
@@ -17,6 +18,7 @@ const selectedNames = ref<string[]>([]);
 const deletingName = ref<string | null>(null);
 const bulkDeleting = ref(false);
 const pruning = ref(false);
+const { t } = useI18n();
 
 const getErrorMessage = (err: unknown) => {
     if (typeof err === 'string') return err;
@@ -28,7 +30,7 @@ const getErrorMessage = (err: unknown) => {
         if (typeof maybeAxiosError.response?.data === 'string') return maybeAxiosError.response.data;
         if (typeof maybeAxiosError.message === 'string') return maybeAxiosError.message;
     }
-    return 'Unknown error';
+    return t('common.unknownError');
 };
 
 const fetchVolumes = async () => {
@@ -46,9 +48,9 @@ const fetchVolumes = async () => {
 const removeVolume = async (name: string) => {
     if (deletingName.value || bulkDeleting.value) return;
     const accepted = await feedback.confirmAction({
-        title: 'Delete Volume',
-        message: 'Are you sure you want to remove this volume?',
-        confirmText: 'Delete',
+        title: t('volumesView.deleteTitle'),
+        message: t('volumesView.deleteMessage'),
+        confirmText: t('common.delete'),
         danger: true,
         requireText: appSettings.safety.softDeleteRequireTyping ? 'DELETE' : undefined,
     });
@@ -58,9 +60,9 @@ const removeVolume = async (name: string) => {
         await dockerApi.removeVolume(name);
         selectedNames.value = selectedNames.value.filter((x) => x !== name);
         await fetchVolumes();
-        feedback.success('Volume removed successfully.');
+        feedback.success(t('volumesView.deletedSuccess'));
     } catch (err) {
-        feedback.error(`Failed to remove volume: ${err}`);
+        feedback.error(t('volumesView.deleteFailed', { error: String(err) }));
     } finally {
         deletingName.value = null;
     }
@@ -71,9 +73,9 @@ const bulkDelete = async () => {
     const namesToDelete = [...selectedNames.value];
     const removeCount = namesToDelete.length;
     const accepted = await feedback.confirmAction({
-        title: 'Delete Volumes',
-        message: `Remove ${removeCount} selected volume(s)? This action cannot be undone.`,
-        confirmText: 'Delete',
+        title: t('volumesView.deleteManyTitle'),
+        message: t('volumesView.deleteManyMessage', { count: removeCount }),
+        confirmText: t('common.delete'),
         danger: true,
         requireText: appSettings.safety.softDeleteRequireTyping ? 'DELETE' : undefined,
     });
@@ -97,15 +99,15 @@ const bulkDelete = async () => {
         await fetchVolumes();
 
         if (deleted.length > 0) {
-            feedback.success(`Deleted ${deleted.length}/${removeCount} volume(s).`);
+            feedback.success(t('volumesView.deletedManySuccess', { deleted: deleted.length, total: removeCount }));
         }
 
         if (failed.length > 0) {
             const failedNames = failed.map((item) => item.name).join(', ');
             const usedVolumes = failed.filter((item) => item.reason.toLowerCase().includes('in use'));
             const message = usedVolumes.length === failed.length
-                ? `Could not delete ${failed.length} in-use volume(s): ${failedNames}`
-                : `Could not delete ${failed.length} volume(s): ${failedNames}`;
+                ? t('volumesView.deleteInUseFailed', { count: failed.length, names: failedNames })
+                : t('volumesView.deleteSomeFailed', { count: failed.length, names: failedNames });
             feedback.warning(message);
         }
     } finally {
@@ -116,9 +118,9 @@ const bulkDelete = async () => {
 const pruneVolumes = async () => {
     if (pruning.value || bulkDeleting.value || deletingName.value) return;
     const accepted = await feedback.confirmAction({
-        title: 'Prune Volumes',
-        message: 'Remove all unused volumes? Volumes still attached to containers will be kept.',
-        confirmText: 'Prune',
+        title: t('volumesView.pruneTitle'),
+        message: t('volumesView.pruneMessage'),
+        confirmText: t('common.prune'),
         danger: true,
         requireText: appSettings.safety.softDeleteRequireTyping ? 'PRUNE' : undefined,
     });
@@ -129,9 +131,9 @@ const pruneVolumes = async () => {
         const { data } = await dockerApi.pruneVolumes();
         await fetchVolumes();
         const deletedCount = Array.isArray(data?.VolumesDeleted) ? data.VolumesDeleted.length : 0;
-        feedback.success(`Pruned ${deletedCount} unused volume(s).`);
+        feedback.success(t('volumesView.prunedSuccess', { count: deletedCount }));
     } catch (err) {
-        feedback.error(`Volume prune failed: ${getErrorMessage(err)}`);
+        feedback.error(t('volumesView.pruneFailed', { error: getErrorMessage(err) }));
     } finally {
         pruning.value = false;
     }
@@ -178,22 +180,22 @@ onMounted(fetchVolumes);
         <div class="toolbar glass-panel">
             <div class="title-with-icon">
                 <HardDrive :size="20" class="icon-indigo" />
-                <h2>Volumes</h2>
+                <h2>{{ t('volumesView.title') }}</h2>
             </div>
             <div class="toolbar-actions">
                 <button class="btn btn-ghost text-danger" :disabled="selectedCount === 0 || bulkDeleting || !!deletingName || pruning" @click="bulkDelete">
                     <RefreshCw v-if="bulkDeleting" :size="16" class="animate-spin" />
                     <Trash2 v-else :size="16" />
-                    {{ bulkDeleting ? `Deleting (${selectedCount})...` : `Delete (${selectedCount})` }}
+                    {{ bulkDeleting ? t('volumesView.deleting', { count: selectedCount }) : t('volumesView.delete', { count: selectedCount }) }}
                 </button>
                 <button class="btn btn-ghost text-warning" :disabled="bulkDeleting || !!deletingName || pruning" @click="pruneVolumes">
                     <RefreshCw v-if="pruning" :size="16" class="animate-spin" />
                     <BrushCleaning v-else :size="16" />
-                    Prune
+                    {{ t('common.prune') }}
                 </button>
                 <button class="btn btn-ghost" :disabled="bulkDeleting || !!deletingName || pruning" @click="fetchVolumes">
                     <RefreshCw :size="18" :class="{ 'animate-spin': loading || pruning }" />
-                    Refresh
+                    {{ t('common.refresh') }}
                 </button>
             </div>
         </div>
@@ -203,11 +205,11 @@ onMounted(fetchVolumes);
                 <thead>
                     <tr>
                         <th class="check-col"><input class="bulk-checkbox" type="checkbox" :checked="allPageSelected" :disabled="bulkDeleting || !!deletingName || pruning" @change="toggleSelectAllPage" /></th>
-                        <th>Name</th>
-                        <th>Driver</th>
-                        <th>Mountpoint</th>
-                        <th>Created</th>
-                        <th class="actions-cell">Actions</th>
+                        <th>{{ t('volumesView.name') }}</th>
+                        <th>{{ t('volumesView.driver') }}</th>
+                        <th>{{ t('volumesView.mountpoint') }}</th>
+                        <th>{{ t('volumesView.created') }}</th>
+                        <th class="actions-cell">{{ t('common.actions') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -223,10 +225,10 @@ onMounted(fetchVolumes);
                                 </div>
                             </div>
                         </td>
-                        <td>{{ vol.CreatedAt ? dayjs(vol.CreatedAt).format('YYYY-MM-DD HH:mm') : '-' }}</td>
+                        <td>{{ vol.CreatedAt ? dayjs(vol.CreatedAt).format('YYYY-MM-DD HH:mm') : t('common.notAvailable') }}</td>
                         <td class="actions-cell">
                             <div class="action-group">
-                                <button class="action-btn action-danger" :disabled="bulkDeleting || !!deletingName || pruning" title="Remove" @click="removeVolume(vol.Name)">
+                                <button class="action-btn action-danger" :disabled="bulkDeleting || !!deletingName || pruning" :title="t('common.remove')" @click="removeVolume(vol.Name)">
                                     <RefreshCw v-if="deletingName === vol.Name" :size="16" class="animate-spin" />
                                     <Trash2 v-else :size="16" />
                                 </button>
@@ -234,7 +236,7 @@ onMounted(fetchVolumes);
                         </td>
                     </tr>
                     <tr v-if="volumes.length === 0 && !loading">
-                        <td colspan="6" class="empty-state">No volumes found</td>
+                        <td colspan="6" class="empty-state">{{ t('volumesView.noItems') }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -242,16 +244,16 @@ onMounted(fetchVolumes);
 
         <div v-if="volumes.length > 0" class="pagination glass-panel">
             <div class="pager-meta">
-                <span>Rows</span>
+                <span>{{ t('common.rows') }}</span>
                 <select v-model.number="pageSize" :disabled="bulkDeleting || !!deletingName || pruning">
                     <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }}</option>
                 </select>
                 <span>{{ pageStart }}-{{ pageEnd }} / {{ totalItems }}</span>
             </div>
             <div class="pager-actions">
-                <button class="btn btn-ghost" :disabled="currentPage === 1 || bulkDeleting || !!deletingName || pruning" @click="currentPage--">Prev</button>
-                <span class="pager-page">Page {{ currentPage }} / {{ totalPages }}</span>
-                <button class="btn btn-ghost" :disabled="currentPage >= totalPages || bulkDeleting || !!deletingName || pruning" @click="currentPage++">Next</button>
+                <button class="btn btn-ghost" :disabled="currentPage === 1 || bulkDeleting || !!deletingName || pruning" @click="currentPage--">{{ t('common.prev') }}</button>
+                <span class="pager-page">{{ t('common.page') }} {{ currentPage }} / {{ totalPages }}</span>
+                <button class="btn btn-ghost" :disabled="currentPage >= totalPages || bulkDeleting || !!deletingName || pruning" @click="currentPage++">{{ t('common.next') }}</button>
             </div>
         </div>
     </div>

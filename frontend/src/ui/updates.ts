@@ -13,6 +13,12 @@ type UpdateCheckResult = {
   hasUpdate: boolean;
 };
 
+type UpdateApplyResult = {
+  started: boolean;
+  targetVersion: string;
+  message: string;
+};
+
 const state = reactive({
   status: 'idle' as UpdateStatus,
   currentVersion: appSettings.about.appVersion,
@@ -21,6 +27,7 @@ const state = reactive({
   checkedAt: '' as string,
   releaseDate: null as string | null,
   updateUrl: '',
+  applying: false,
 });
 
 const getUpdateUrl = () => {
@@ -96,8 +103,40 @@ const openUpdateUrl = () => {
   window.open(target, '_blank', 'noopener,noreferrer');
 };
 
+const apply = async (): Promise<UpdateApplyResult> => {
+  const namespace = appSettings.updates.dockerHubNamespace.trim();
+  const repoPrefix = appSettings.updates.dockerHubRepoPrefix.trim();
+
+  if (!namespace || !repoPrefix) {
+    throw new Error('Docker Hub namespace and repository prefix are required.');
+  }
+  if (!state.latestVersion) {
+    throw new Error('No target version is available yet.');
+  }
+
+  state.applying = true;
+  try {
+    const response = await dockerApi.applyAppUpdate({
+      namespace,
+      repoPrefix,
+      targetVersion: state.latestVersion,
+    });
+    const payload = response.data as Partial<UpdateApplyResult>;
+    state.message = payload.message || `Started updating to version ${state.latestVersion}.`;
+    return {
+      started: payload.started !== false,
+      targetVersion: payload.targetVersion || state.latestVersion,
+      message: payload.message || state.message,
+    };
+  } catch (error) {
+    state.applying = false;
+    throw error;
+  }
+};
+
 export const updates = {
   state,
   refresh,
+  apply,
   openUpdateUrl,
 };

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { Eye, Play, RefreshCw, RotateCw, Save, Search, Square, Trash2, X } from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
 import { dockerApi } from '../api';
 import { feedback } from '../ui/feedback';
 import { appSettings } from '../ui/settings';
@@ -26,6 +27,7 @@ type ComposeProject = {
 
 type ComposeProjectFile = {
     path: string;
+    kind?: 'compose' | 'env';
     content?: string;
     error?: string;
 };
@@ -76,6 +78,7 @@ const splitRoot = ref<HTMLElement | null>(null);
 let splitDragging = false;
 let composeValidationTimer: number | null = null;
 let composeValidationRequestId = 0;
+const { t } = useI18n();
 
 const fetchProjects = async () => {
     try {
@@ -106,7 +109,7 @@ const fetchFiles = async (projectName: string) => {
         const selected = files.value.find((f) => f.path === selectedFilePath.value);
         fileDraft.value = selected?.content || '';
     } catch (err) {
-        files.value = [{ path: 'N/A', error: String(err) }];
+        files.value = [{ path: t('common.notAvailable'), error: getErrorMessage(err) }];
         selectedFilePath.value = '';
         fileDraft.value = '';
     } finally {
@@ -123,7 +126,7 @@ const fetchLogs = async (projectName: string) => {
         await nextTick();
         if (logsPanel.value && shouldStickToBottom) logsPanel.value.scrollTop = logsPanel.value.scrollHeight;
     } catch (err) {
-        logsRawOutput.value = `Failed to fetch logs: ${err}`;
+        logsRawOutput.value = t('compose.logsLoadFailed', { error: getErrorMessage(err) });
     } finally {
         loadingLogs.value = false;
     }
@@ -141,6 +144,8 @@ const reloadDetailsWithGuard = async (projectName: string, message: string) => {
 };
 
 const selectedFile = computed(() => files.value.find((f) => f.path === selectedFilePath.value) || null);
+const selectedFileKind = computed(() => selectedFile.value?.kind || 'compose');
+const selectedFileIsEnv = computed(() => selectedFileKind.value === 'env');
 const selectedFileIsEditable = computed(() => !!selectedFile.value && !selectedFile.value.error && typeof selectedFile.value.content === 'string');
 const hasMultipleComposeFiles = computed(() => files.value.length > 1);
 const isDraftChanged = computed(() => {
@@ -157,7 +162,7 @@ const canSaveCompose = computed(() =>
     && !composeValidationError.value
 );
 const logServiceOptions = computed(() => [
-    { label: 'All services', value: 'all' },
+    { label: t('compose.allServices'), value: 'all' },
     ...((selectedProject.value?.services || []).map((service) => ({
         label: service.name,
         value: service.name,
@@ -165,6 +170,26 @@ const logServiceOptions = computed(() => [
 ]);
 
 const getFileName = (path: string) => path.split('/').filter(Boolean).pop() || path;
+const getFileKindLabel = (file?: ComposeProjectFile | null) => (file?.kind === 'env' ? 'ENV' : 'YAML');
+const getEditorTitle = (file?: ComposeProjectFile | null) => {
+    if (!file) return t('compose.editFile');
+    if (hasMultipleComposeFiles.value) return getFileName(file.path);
+    return file.kind === 'env' ? t('compose.editEnvFile') : t('compose.editComposeFile');
+};
+const getProjectStatusLabel = (status: string) => {
+    if (status === 'running') return t('compose.running');
+    if (status === 'stopped') return t('compose.stopped');
+    if (status === 'partial') return t('compose.partial');
+    return status || t('compose.unknown');
+};
+const getServiceStateLabel = (state: string) => {
+    if (state === 'running') return t('compose.running');
+    if (state === 'stopped') return t('compose.stopped');
+    if (state === 'exited') return t('compose.exited');
+    if (state === 'dead') return t('compose.dead');
+    if (state === 'partial') return t('compose.partial');
+    return state || t('compose.unknown');
+};
 
 const escapeHtml = (value: string) =>
     value
@@ -189,7 +214,19 @@ const highlightCompose = (value: string) => {
     return lines.join('\n');
 };
 
-const highlightedDraft = computed(() => highlightCompose(fileDraft.value));
+const highlightEnv = (value: string) => {
+    const escaped = escapeHtml(value);
+    const lines = escaped.split('\n').map((line) => {
+        if (!line.trim()) return '&nbsp;';
+        if (/^\s*#/.test(line)) return `<span class="tok-comment">${line}</span>`;
+        const match = line.match(/^(\s*[A-Za-z_][A-Za-z0-9_.-]*)(=)(.*)$/);
+        if (!match) return line;
+        return `<span class="tok-key">${match[1]}</span><span class="tok-punc">${match[2]}</span><span class="tok-string">${match[3]}</span>`;
+    });
+    return lines.join('\n');
+};
+
+const highlightedDraft = computed(() => (selectedFileIsEnv.value ? highlightEnv(fileDraft.value) : highlightCompose(fileDraft.value)));
 
 const ansiPalette: Record<string, string> = {
     '30': '#0f172a',
@@ -280,7 +317,7 @@ const filteredLogBlocks = computed(() => {
 
 const renderedLogsHtml = computed(() => {
     if (filteredLogBlocks.value.length === 0) {
-        return escapeHtml(logsRawOutput.value || 'No logs yet.');
+        return escapeHtml(logsRawOutput.value || t('compose.noLogsYet'));
     }
 
     return filteredLogBlocks.value
@@ -307,12 +344,12 @@ const highlightDiffLine = (line: string) => {
 };
 
 const buildDiffPreview = (original: string, edited: string) => {
-    if (original === edited) return ['No changes yet.'];
+    if (original === edited) return [t('compose.noChangesYet')];
 
     const oldLines = original.split('\n');
     const newLines = edited.split('\n');
     const max = Math.max(oldLines.length, newLines.length);
-    const lines: string[] = ['--- current', '+++ draft'];
+    const lines: string[] = [`--- ${t('compose.currentLabel')}`, `+++ ${t('compose.draftLabel')}`];
 
     for (let i = 0; i < max; i += 1) {
         const before = oldLines[i];
@@ -374,10 +411,10 @@ const handleSplitDrag = (event: MouseEvent) => {
 const confirmDiscardChanges = async (message: string) => {
     if (!isDraftChanged.value) return true;
     return feedback.confirmAction({
-        title: 'Unsaved Compose Changes',
+        title: t('compose.discardTitle'),
         message,
-        confirmText: 'Discard',
-        cancelText: 'Stay',
+        confirmText: t('compose.discard'),
+        cancelText: t('compose.stay'),
         danger: true,
         requireText: appSettings.safety.softDeleteRequireTyping ? 'DISCARD' : undefined,
     });
@@ -386,7 +423,7 @@ const confirmDiscardChanges = async (message: string) => {
 const selectFile = async (path: string) => {
     if (path === selectedFilePath.value) return;
     if (isDraftChanged.value) {
-        const accepted = await confirmDiscardChanges('Discard your unsaved compose changes and switch file?');
+        const accepted = await confirmDiscardChanges(t('compose.discardSwitchFile'));
         if (!accepted) return;
     }
     selectedFilePath.value = path;
@@ -411,11 +448,11 @@ const getErrorMessage = (err: unknown) => {
         if (typeof maybeAxiosError.response?.data === 'string') return maybeAxiosError.response.data;
         if (typeof maybeAxiosError.message === 'string') return maybeAxiosError.message;
     }
-    return 'Unknown error';
+    return t('common.unknownError');
 };
 
 const validateDraftNow = async () => {
-    if (!selectedProjectName.value || !selectedFile.value || !selectedFileIsEditable.value) {
+    if (!selectedProjectName.value || !selectedFile.value || !selectedFileIsEditable.value || selectedFileIsEnv.value) {
         composeValidationError.value = '';
         validatingCompose.value = false;
         return;
@@ -429,7 +466,7 @@ const validateDraftNow = async () => {
             content: fileDraft.value,
         });
         if (requestId !== composeValidationRequestId) return;
-        composeValidationError.value = data?.valid ? '' : String(data?.error || 'Invalid compose file.');
+        composeValidationError.value = data?.valid ? '' : String(data?.error || t('compose.invalidDefault'));
     } catch (err) {
         if (requestId !== composeValidationRequestId) return;
         composeValidationError.value = getErrorMessage(err);
@@ -441,7 +478,7 @@ const validateDraftNow = async () => {
 
 const scheduleComposeValidation = () => {
     if (composeValidationTimer) window.clearTimeout(composeValidationTimer);
-    if (!selectedFileIsEditable.value || !selectedFile.value) {
+    if (!selectedFileIsEditable.value || !selectedFile.value || selectedFileIsEnv.value) {
         composeValidationError.value = '';
         validatingCompose.value = false;
         return;
@@ -454,11 +491,11 @@ const scheduleComposeValidation = () => {
 const saveSelectedFile = async (restartAfter = false) => {
     if (!selectedProjectName.value || !selectedFile.value || !selectedFileIsEditable.value || savingFile.value) return;
     if (validatingCompose.value) {
-        feedback.warning('Compose file is still being validated.');
+        feedback.warning(t('compose.validationInProgress'));
         return;
     }
     if (composeValidationError.value) {
-        feedback.error(`Compose validation failed: ${composeValidationError.value}`);
+        feedback.error(t('compose.validationFailed', { error: composeValidationError.value }));
         return;
     }
     try {
@@ -468,17 +505,17 @@ const saveSelectedFile = async (restartAfter = false) => {
             path: selectedFile.value.path,
             content: fileDraft.value,
         });
-        feedback.success('Saved compose file.');
+        feedback.success(selectedFileIsEnv.value ? t('compose.savedEnv') : t('compose.savedCompose'));
         if (restartAfter) {
             await dockerApi.restartComposeProject(selectedProjectName.value);
-            feedback.success(`Compose "${selectedProjectName.value}" restarted successfully.`);
+            feedback.success(t('compose.projectRestarted', { name: selectedProjectName.value }));
         }
         await fetchFiles(selectedProjectName.value);
         composeValidationError.value = '';
         syncEditorScroll();
         showingDiffPreview.value = false;
     } catch (err) {
-        feedback.error(`Failed to save file: ${err}`);
+        feedback.error(t('compose.saveFailed', { error: String(err) }));
     } finally {
         savingFile.value = false;
         restartingAfterSave.value = false;
@@ -488,7 +525,7 @@ const saveSelectedFile = async (restartAfter = false) => {
 const selectProject = async (projectName: string) => {
     if (!projectName) return;
     if (projectName !== selectedProjectName.value) {
-        const accepted = await confirmDiscardChanges('Discard your unsaved compose changes and switch project?');
+        const accepted = await confirmDiscardChanges(t('compose.discardSwitchProject'));
         if (!accepted) return;
     }
     selectedProjectName.value = projectName;
@@ -498,14 +535,14 @@ const selectProject = async (projectName: string) => {
 const runAction = async (action: 'start' | 'stop' | 'restart' | 'down', projectName: string) => {
     try {
         if (selectedProjectName.value === projectName) {
-            const accepted = await confirmDiscardChanges(`Discard your unsaved compose changes before ${action}ing this project?`);
+            const accepted = await confirmDiscardChanges(t('compose.discardProjectAction', { action }));
             if (!accepted) return;
         }
         if (action === 'down') {
             const accepted = await feedback.confirmAction({
-                title: 'Bring Down Compose',
-                message: `Bring down compose project "${projectName}"? This will remove project containers.`,
-                confirmText: 'Down',
+                title: t('compose.downTitle'),
+                message: t('compose.downMessage', { name: projectName }),
+                confirmText: t('compose.down'),
                 danger: true,
                 requireText: appSettings.safety.softDeleteRequireTyping ? 'DELETE' : undefined,
             });
@@ -522,19 +559,19 @@ const runAction = async (action: 'start' | 'stop' | 'restart' | 'down', projectN
         if (selectedProjectName.value) {
             await loadDetails(selectedProjectName.value);
         }
-        if (action === 'start') feedback.success(`Compose "${projectName}" started successfully.`);
-        else if (action === 'stop') feedback.success(`Compose "${projectName}" stopped successfully.`);
-        else if (action === 'restart') feedback.success(`Compose "${projectName}" restarted successfully.`);
-        else feedback.success(`Compose "${projectName}" down successfully.`);
+        if (action === 'start') feedback.success(t('compose.projectStarted', { name: projectName }));
+        else if (action === 'stop') feedback.success(t('compose.projectStopped', { name: projectName }));
+        else if (action === 'restart') feedback.success(t('compose.projectRestarted', { name: projectName }));
+        else feedback.success(t('compose.projectDown', { name: projectName }));
     } catch (err) {
-        feedback.error(`Compose action failed: ${err}`);
+        feedback.error(t('compose.actionFailed', { error: String(err) }));
     }
 };
 
 const runServiceAction = async (action: 'start' | 'stop' | 'restart', service: ComposeService) => {
     if (!service?.id) return;
     try {
-        const accepted = await confirmDiscardChanges(`Discard your unsaved compose changes before ${action}ing service "${service.name}"?`);
+        const accepted = await confirmDiscardChanges(t('compose.discardServiceAction', { action, name: service.name }));
         if (!accepted) return;
         serviceActionLoadingId.value = service.id;
         if (action === 'start') {
@@ -552,10 +589,11 @@ const runServiceAction = async (action: 'start' | 'stop' | 'restart', service: C
         if (selectedProjectName.value) {
             await loadDetails(selectedProjectName.value);
         }
-        const actionLabel = action === 'start' ? 'started' : action === 'stop' ? 'stopped' : 'restarted';
-        feedback.success(`Service "${service.name}" ${actionLabel} successfully.`);
+        if (action === 'start') feedback.success(t('compose.serviceStarted', { name: service.name }));
+        else if (action === 'stop') feedback.success(t('compose.serviceStopped', { name: service.name }));
+        else feedback.success(t('compose.serviceRestarted', { name: service.name }));
     } catch (err) {
-        feedback.error(`Service action failed: ${err}`);
+        feedback.error(t('compose.serviceActionFailed', { error: String(err) }));
     } finally {
         serviceActionLoadingId.value = '';
     }
@@ -665,16 +703,16 @@ watch(selectedFilePath, () => {
     <div class="compose-layout">
         <aside class="left-col glass-panel">
             <div class="left-header">
-                <h3>Compose</h3>
+                <h3>{{ t('compose.title') }}</h3>
                 <button class="btn btn-ghost compact-btn" @click="fetchProjects">
                     <RefreshCw :size="16" :class="{ 'animate-spin': loadingProjects }" />
-                    Refresh
+                    {{ t('compose.refresh') }}
                 </button>
             </div>
 
             <div class="search-box">
                 <Search :size="16" />
-                <input v-model="searchQuery" type="text" placeholder="Search compose..." />
+                <input v-model="searchQuery" type="text" :placeholder="t('compose.searchPlaceholder')" />
             </div>
 
             <div class="project-list">
@@ -682,11 +720,11 @@ watch(selectedFilePath, () => {
                     :class="{ active: selectedProjectName === project.name }" @click="selectProject(project.name)">
                     <div class="row-1">
                         <span class="name">{{ project.name }}</span>
-                        <span class="status" :class="getProjectStatusClass(project.status)">{{ project.status }}</span>
+                        <span class="status" :class="getProjectStatusClass(project.status)">{{ getProjectStatusLabel(project.status) }}</span>
                     </div>
-                    <div class="row-2">{{ project.running }} / {{ project.total }} running</div>
+                    <div class="row-2">{{ project.running }} / {{ project.total }}</div>
                 </button>
-                <div v-if="filteredProjects.length === 0 && !loadingProjects" class="empty">No projects found</div>
+                <div v-if="filteredProjects.length === 0 && !loadingProjects" class="empty">{{ t('compose.noProjects') }}</div>
             </div>
         </aside>
 
@@ -695,52 +733,52 @@ watch(selectedFilePath, () => {
                 <div class="detail-header">
                     <div>
                         <h2>{{ selectedProject.name }}</h2>
-                        <p class="path">{{ selectedProject.workingDir || 'No working directory label' }}</p>
+                        <p class="path">{{ selectedProject.workingDir || t('common.notAvailable') }}</p>
                     </div>
                     <div class="actions">
                         <div class="action-cluster">
-                            <button class="btn btn-ghost action-btn" title="Start"
+                            <button class="btn btn-ghost action-btn" :title="t('compose.start')"
                                 @click="runAction('start', selectedProject.name)">
                                 <Play :size="16" />
-                                <span>Start</span>
+                                <span>{{ t('compose.start') }}</span>
                             </button>
-                            <button class="btn btn-ghost action-btn" title="Stop"
+                            <button class="btn btn-ghost action-btn" :title="t('compose.stop')"
                                 @click="runAction('stop', selectedProject.name)">
                                 <Square :size="16" />
-                                <span>Stop</span>
+                                <span>{{ t('compose.stop') }}</span>
                             </button>
-                            <button class="btn btn-ghost action-btn" title="Restart"
+                            <button class="btn btn-ghost action-btn" :title="t('compose.restart')"
                                 @click="runAction('restart', selectedProject.name)">
                                 <RotateCw :size="16" />
-                                <span>Restart</span>
+                                <span>{{ t('compose.restart') }}</span>
                             </button>
                             <button class="btn btn-ghost action-btn"
-                                @click="reloadDetailsWithGuard(selectedProject.name, 'Discard your unsaved compose changes and reload project details?')">
+                                @click="reloadDetailsWithGuard(selectedProject.name, t('compose.discardReload'))">
                                 <RefreshCw :size="16" />
-                                <span>Reload</span>
+                                <span>{{ t('compose.reload') }}</span>
                             </button>
                         </div>
-                        <button class="btn btn-danger-soft action-btn danger-btn" title="Down"
+                        <button class="btn btn-danger-soft action-btn danger-btn" :title="t('compose.down')"
                             @click="runAction('down', selectedProject.name)">
                             <Trash2 :size="16" />
-                            <span>Down</span>
+                            <span>{{ t('compose.down') }}</span>
                         </button>
                     </div>
                 </div>
 
                 <div class="services-panel">
                     <div class="panel-head services-head">
-                        <h4>Services</h4>
-                        <span class="hint">{{ selectedProject.services.length }} container(s)</span>
+                        <h4>{{ t('compose.services') }}</h4>
+                        <span class="hint">{{ t('compose.containersCount', { count: selectedProject.services.length }) }}</span>
                     </div>
                     <div class="services-table-wrap">
                         <table class="services-table">
                             <thead>
                                 <tr>
-                                    <th>Service</th>
-                                    <th>State</th>
-                                    <th>Image</th>
-                                    <th class="service-actions-col">Actions</th>
+                                    <th>{{ t('compose.service') }}</th>
+                                    <th>{{ t('compose.state') }}</th>
+                                    <th>{{ t('containersView.image') }}</th>
+                                    <th class="service-actions-col">{{ t('common.actions') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -748,7 +786,7 @@ watch(selectedFilePath, () => {
                                     <td>{{ service.name }}</td>
                                     <td>
                                         <span class="service-state" :class="getServiceClass(service.state)">
-                                            {{ service.state }}
+                                            {{ getServiceStateLabel(service.state) }}
                                         </span>
                                     </td>
                                     <td><code>{{ service.image }}</code></td>
@@ -758,20 +796,20 @@ watch(selectedFilePath, () => {
                                                 :disabled="serviceActionLoadingId === service.id || service.state === 'running'"
                                                 @click="runServiceAction('start', service)">
                                                 <Play :size="14" />
-                                                Start
+                                                {{ t('compose.start') }}
                                             </button>
                                             <button class="btn btn-ghost compact-btn"
                                                 :disabled="serviceActionLoadingId === service.id || service.state !== 'running'"
                                                 @click="runServiceAction('stop', service)">
                                                 <Square :size="14" />
-                                                Stop
+                                                {{ t('compose.stop') }}
                                             </button>
                                             <button class="btn btn-ghost compact-btn"
                                                 :disabled="serviceActionLoadingId === service.id"
                                                 @click="runServiceAction('restart', service)">
                                                 <RotateCw :size="14"
                                                     :class="{ 'animate-spin': serviceActionLoadingId === service.id }" />
-                                                Restart
+                                                {{ t('compose.restart') }}
                                             </button>
                                         </div>
                                     </td>
@@ -781,14 +819,14 @@ watch(selectedFilePath, () => {
                     </div>
                 </div>
 
-                <div class="workspace-toggle" role="tablist" aria-label="Compose workspace view">
+                <div class="workspace-toggle" role="tablist" :aria-label="t('compose.workspaceAria')">
                     <button type="button" class="workspace-toggle-btn"
                         :class="{ active: activeWorkspaceView === 'compose' }" @click="activeWorkspaceView = 'compose'">
-                        Compose
+                        {{ t('compose.title') }}
                     </button>
                     <button type="button" class="workspace-toggle-btn"
                         :class="{ active: activeWorkspaceView === 'logs' }" @click="activeWorkspaceView = 'logs'">
-                        View logs
+                        {{ t('compose.viewLogs') }}
                     </button>
                 </div>
 
@@ -796,39 +834,64 @@ watch(selectedFilePath, () => {
                     <div v-if="activeWorkspaceView === 'compose'" class="panel">
                         <div class="panel-head">
                             <div class="compose-files-head">
-                                <h4>Compose Files</h4>
-                                <span v-if="isDraftChanged" class="dirty-badge">Unsaved changes</span>
+                                <h4>{{ t('compose.composeFiles') }}</h4>
+                                <span v-if="isDraftChanged" class="dirty-badge">{{ t('compose.unsavedChanges') }}</span>
                             </div>
                             <span class="hint">
-                                {{ loadingFiles ? 'Loading...' : selectedFile ? getFileName(selectedFile.path) :
-                                    `${files.length} file(s)` }}
+                                {{ loadingFiles ? t('compose.loading') : selectedFile ? getFileName(selectedFile.path) :
+                                    t('compose.filesCount', { count: files.length }) }}
                             </span>
                         </div>
                         <div class="panel-body file-body file-editor-layout"
                             :class="{ 'has-file-list': hasMultipleComposeFiles }">
-                            <div v-if="files.length === 0 && !loadingFiles" class="empty">No compose files</div>
+                            <div v-if="files.length === 0 && !loadingFiles" class="empty">{{ t('compose.noProjectFiles') }}</div>
 
                             <div v-if="hasMultipleComposeFiles" class="file-list">
                                 <button v-for="file in files" :key="file.path" class="file-item-btn"
                                     :class="{ active: selectedFilePath === file.path }" @click="selectFile(file.path)">
-                                    <span class="file-kind">YAML</span>
+                                    <span class="file-kind" :class="{ 'file-kind-env': file.kind === 'env' }">{{ getFileKindLabel(file) }}</span>
                                     <span class="file-path-short">{{ getFileName(file.path) }}</span>
                                 </button>
                             </div>
 
                             <div v-if="selectedFile" class="file-editor-box">
                                 <div class="file-path">
-                                    <span class="file-chip">{{ hasMultipleComposeFiles ? 'COMPOSE' : 'YAML' }}</span>
-                                    <span>{{ hasMultipleComposeFiles ? getFileName(selectedFile.path) :
-                                        'Editing compose file' }}</span>
+                                    <div class="file-path-meta">
+                                        <span class="file-chip" :class="{ 'file-chip-env': selectedFile.kind === 'env' }">{{ getFileKindLabel(selectedFile) }}</span>
+                                        <span>{{ getEditorTitle(selectedFile) }}</span>
+                                    </div>
+                                    <div v-if="selectedFile" class="editor-actions editor-actions-inline">
+                                        <button class="btn btn-ghost compact-btn"
+                                            :disabled="!isDraftChanged || !selectedFileIsEditable || !!composeValidationError || validatingCompose"
+                                            @click="showingDiffPreview = true">
+                                            <Eye :size="14" />
+                                            {{ t('compose.previewDiff') }}
+                                        </button>
+                                        <button class="btn btn-ghost compact-btn"
+                                            :disabled="!isDraftChanged || savingFile || !selectedFileIsEditable"
+                                            @click="resetDraft">
+                                            <X :size="14" />
+                                            {{ t('common.reset') }}
+                                        </button>
+                                        <button class="btn btn-primary compact-btn" :disabled="!canSaveCompose"
+                                            @click="() => saveSelectedFile()">
+                                            <Save :size="14" :class="{ 'animate-spin': savingFile }" />
+                                            {{ t('common.save') }}
+                                        </button>
+                                        <button class="btn btn-ghost compact-btn save-restart-btn"
+                                            :disabled="!canSaveCompose" @click="saveSelectedFile(true)">
+                                            <RotateCw :size="14" :class="{ 'animate-spin': restartingAfterSave }" />
+                                            {{ t('compose.saveAndRestart') }}
+                                        </button>
+                                    </div>
                                 </div>
 
-                                <div v-if="selectedFileIsEditable && (validatingCompose || composeValidationError || isDraftChanged)"
+                                <div v-if="selectedFileIsEditable && !selectedFileIsEnv && (validatingCompose || composeValidationError || isDraftChanged)"
                                     class="validation-banner"
                                     :class="{ invalid: !!composeValidationError, valid: !composeValidationError && isDraftChanged }">
-                                    <span v-if="validatingCompose">Validating compose...</span>
+                                    <span v-if="validatingCompose">{{ t('compose.validating') }}</span>
                                     <span v-else-if="composeValidationError">{{ composeValidationError }}</span>
-                                    <span v-else>Compose file is valid.</span>
+                                    <span v-else>{{ t('compose.valid') }}</span>
                                 </div>
 
                                 <div v-if="selectedFileIsEditable" class="editor-shell">
@@ -837,43 +900,14 @@ watch(selectedFilePath, () => {
                                     <textarea ref="editorInput" v-model="fileDraft" class="code editor"
                                         spellcheck="false" @scroll="syncEditorScroll" />
                                 </div>
-                                <pre v-else class="code error">Cannot read file: {{ selectedFile.error }}</pre>
-                            </div>
-
-                            <div v-if="selectedFile" class="editor-actions editor-actions-outside">
-                                <div class="editor-actions-group">
-                                    <button class="btn btn-ghost compact-btn"
-                                        :disabled="!isDraftChanged || !selectedFileIsEditable || !!composeValidationError || validatingCompose"
-                                        @click="showingDiffPreview = true">
-                                        <Eye :size="14" />
-                                        Preview Diff
-                                    </button>
-                                    <button class="btn btn-ghost compact-btn"
-                                        :disabled="!isDraftChanged || savingFile || !selectedFileIsEditable"
-                                        @click="resetDraft">
-                                        <X :size="14" />
-                                        Reset
-                                    </button>
-                                </div>
-                                <div class="editor-actions-group editor-actions-group-primary">
-                                    <button class="btn btn-primary compact-btn" :disabled="!canSaveCompose"
-                                        @click="() => saveSelectedFile()">
-                                        <Save :size="14" :class="{ 'animate-spin': savingFile }" />
-                                        Save
-                                    </button>
-                                    <button class="btn btn-ghost compact-btn save-restart-btn"
-                                        :disabled="!canSaveCompose" @click="saveSelectedFile(true)">
-                                        <RotateCw :size="14" :class="{ 'animate-spin': restartingAfterSave }" />
-                                        Save & Restart
-                                    </button>
-                                </div>
+                                <pre v-else class="code error">{{ t('compose.cannotReadFile', { error: selectedFile.error }) }}</pre>
                             </div>
                         </div>
                     </div>
 
                     <div v-else class="panel">
                         <div class="panel-head">
-                            <h4>Logs</h4>
+                            <h4>{{ t('compose.logs') }}</h4>
                             <div class="log-controls">
                                 <select v-model="selectedLogService" class="log-control log-service-select">
                                     <option v-for="option in logServiceOptions" :key="option.value"
@@ -881,18 +915,18 @@ watch(selectedFilePath, () => {
                                         {{ option.label }}
                                     </option>
                                 </select>
-                                <input v-model="logsSearchQuery" type="text" placeholder="Search logs..."
+                                <input v-model="logsSearchQuery" type="text" :placeholder="t('compose.searchLogs')"
                                     class="log-control log-search" />
-                                <label>Tail</label>
+                                <label>{{ t('compose.tail') }}</label>
                                 <input v-model.number="logsTail" type="number" min="50" max="2000" step="50"
                                     class="log-control log-tail-input" />
                                 <button class="btn btn-ghost compact-btn" :class="{ 'is-active': logsFollow }"
                                     @click="jumpToLatestLogs">
-                                    {{ logsFollow ? 'Following' : 'Follow' }}
+                                    {{ logsFollow ? t('compose.following') : t('compose.follow') }}
                                 </button>
                                 <button class="btn btn-ghost compact-btn" @click="fetchLogs(selectedProject.name)">
                                     <RefreshCw :size="14" :class="{ 'animate-spin': loadingLogs }" />
-                                    Refresh
+                                    {{ t('compose.refresh') }}
                                 </button>
                             </div>
                         </div>
@@ -902,24 +936,24 @@ watch(selectedFilePath, () => {
                 </div>
             </div>
 
-            <div v-else class="empty-state">Select a compose project from the left list.</div>
+            <div v-else class="empty-state">{{ t('compose.selectProject') }}</div>
         </section>
 
         <div v-if="showingDiffPreview" class="diff-modal-backdrop" @click.self="showingDiffPreview = false">
             <div class="diff-modal glass-panel">
                 <div class="diff-modal-head">
                     <div>
-                        <h3>Compose Diff Preview</h3>
-                        <p>{{ selectedFile ? getFileName(selectedFile.path) : 'Current compose file' }}</p>
+                        <h3>{{ t('compose.diffTitle') }}</h3>
+                        <p>{{ selectedFile ? getFileName(selectedFile.path) : t('compose.currentFile') }}</p>
                     </div>
                     <div class="diff-modal-actions">
                         <button class="btn btn-ghost compact-btn" @click="showingDiffPreview = false">
-                            Close
+                            {{ t('common.close') }}
                         </button>
                         <button class="btn btn-primary compact-btn" :disabled="!canSaveCompose"
                             @click="() => saveSelectedFile()">
                             <Save :size="14" :class="{ 'animate-spin': savingFile && !restartingAfterSave }" />
-                            Save
+                            {{ t('common.save') }}
                         </button>
                     </div>
                 </div>
@@ -1342,13 +1376,11 @@ watch(selectedFilePath, () => {
     align-content: start;
 }
 
-.file-editor-layout:not(.has-file-list)>.file-editor-box,
-.file-editor-layout:not(.has-file-list)>.editor-actions-outside {
+.file-editor-layout:not(.has-file-list)>.file-editor-box {
     grid-column: 1 / -1;
 }
 
-.file-editor-layout.has-file-list>.file-editor-box,
-.file-editor-layout.has-file-list>.editor-actions-outside {
+.file-editor-layout.has-file-list>.file-editor-box {
     grid-column: 2 / 3;
 }
 
@@ -1395,6 +1427,12 @@ watch(selectedFilePath, () => {
     border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
+.file-kind-env {
+    color: #86efac;
+    background: rgba(34, 197, 94, 0.14);
+    border-color: rgba(34, 197, 94, 0.3);
+}
+
 .file-path-short {
     font-size: 0.74rem;
     color: var(--text-muted);
@@ -1420,13 +1458,23 @@ watch(selectedFilePath, () => {
 .file-path {
     font-size: 0.78rem;
     color: var(--text-muted);
-    padding: 15px 8px;
+    padding: 10px 12px;
     border-bottom: 1px solid var(--glass-border);
     background: var(--glass);
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+    flex-wrap: nowrap;
+}
+
+.file-path-meta {
+    display: flex;
+    align-items: center;
     gap: 8px;
     min-width: 0;
+    flex: 1 1 auto;
     overflow: hidden;
 }
 
@@ -1441,7 +1489,13 @@ watch(selectedFilePath, () => {
     padding: 2px 6px;
 }
 
-.file-path span:last-child {
+.file-chip-env {
+    color: #86efac;
+    border-color: rgba(34, 197, 94, 0.35);
+    background: rgba(34, 197, 94, 0.14);
+}
+
+.file-path-meta span:last-child {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1486,7 +1540,7 @@ watch(selectedFilePath, () => {
 .editor-shell {
     position: relative;
     flex: 1;
-    min-height: 360px;
+    min-height: 540px;
     background:
         linear-gradient(180deg, rgba(37, 99, 235, 0.06), transparent 18%),
         var(--code-bg);
@@ -1515,7 +1569,7 @@ watch(selectedFilePath, () => {
     border: none;
     outline: none;
     resize: none;
-    min-height: 360px;
+    min-height: 540px;
     width: 100%;
     color: transparent;
     background: transparent;
@@ -1552,37 +1606,36 @@ watch(selectedFilePath, () => {
 }
 
 .editor-actions {
-    padding: 8px;
-    border-top: 1px solid var(--glass-border);
-    display: grid;
-    grid-template-columns: 1fr;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
     gap: 8px;
-    background: var(--glass);
 }
 
-.editor-actions-outside {
-    border: 1px solid var(--glass-border);
-    border-radius: 10px;
-    background: linear-gradient(180deg, rgba(30, 41, 59, 0.74), rgba(15, 23, 42, 0.72));
-    margin-top: 0;
-}
-
-.editor-actions-group {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-    min-width: 0;
-}
-
-.editor-actions-group-primary {
-    justify-content: stretch;
+.editor-actions-inline {
+    flex: 0 1 auto;
+    margin-left: auto;
+    flex-shrink: 0;
 }
 
 .editor-actions .btn {
     white-space: nowrap;
-    width: 100%;
-    min-width: 0;
+    width: auto;
+    min-width: fit-content;
     justify-content: center;
+}
+
+.editor-actions-inline .btn {
+    padding: 5px 8px;
+    min-height: 30px;
+    font-size: 0.74rem;
+    gap: 5px;
+}
+
+.editor-actions-inline :deep(svg) {
+    width: 13px;
+    height: 13px;
 }
 
 .save-restart-btn {
@@ -1695,14 +1748,13 @@ watch(selectedFilePath, () => {
     display: flex;
     align-items: center;
     gap: 6px;
-    flex-wrap: wrap;
     justify-content: flex-end;
     min-width: 0;
 }
 
 .log-controls label {
     color: var(--text-muted);
-    font-size: 0.8rem;
+    font-size: 0.74rem;
     flex-shrink: 0;
 }
 
@@ -1710,10 +1762,12 @@ watch(selectedFilePath, () => {
 .log-controls select {
     border: 1px solid var(--glass-border);
     border-radius: 6px;
-    padding: 4px 6px;
+    padding: 3px 6px;
     background: var(--glass);
     color: var(--text-main);
     min-width: 0;
+    min-height: 30px;
+    font-size: 0.78rem;
 }
 
 .log-controls select {
@@ -1743,12 +1797,24 @@ watch(selectedFilePath, () => {
 }
 
 .log-tail-input {
-    width: 64px;
+    width: 60px;
 }
 
 .log-controls .is-active {
     border-color: rgba(36, 150, 237, 0.45);
     color: var(--primary);
+}
+
+.log-controls .compact-btn {
+    padding: 5px 8px;
+    min-height: 30px;
+    font-size: 0.74rem;
+    gap: 5px;
+}
+
+.log-controls :deep(svg) {
+    width: 13px;
+    height: 13px;
 }
 
 .text-danger {
@@ -1794,8 +1860,7 @@ watch(selectedFilePath, () => {
         grid-template-columns: 1fr;
     }
 
-    .file-editor-layout.has-file-list>.file-editor-box,
-    .file-editor-layout.has-file-list>.editor-actions-outside {
+    .file-editor-layout.has-file-list>.file-editor-box {
         grid-column: 1 / -1;
     }
 
@@ -1811,10 +1876,28 @@ watch(selectedFilePath, () => {
 
     .editor-actions {
         justify-content: flex-start;
+        flex-wrap: wrap;
     }
 
-    .editor-actions-group-primary {
+    .file-path {
+        align-items: stretch;
+        flex-wrap: wrap;
+    }
+
+    .file-path-meta {
+        width: 100%;
+    }
+
+    .editor-actions-inline {
+        width: 100%;
+        flex: 1 1 100%;
+        min-width: 0;
         margin-left: 0;
+    }
+
+    .editor-shell,
+    .editor {
+        min-height: 460px;
     }
 
     .service-actions-col {
@@ -1846,12 +1929,6 @@ watch(selectedFilePath, () => {
 
     .splitter {
         display: none;
-    }
-}
-
-@media (max-width: 1450px) {
-    .editor-actions-group {
-        grid-template-columns: 1fr;
     }
 }
 </style>

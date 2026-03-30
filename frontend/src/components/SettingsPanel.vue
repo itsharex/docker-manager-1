@@ -12,8 +12,18 @@ const props = defineProps<{
 const { t } = useI18n();
 
 const apiHint = computed(() => `${appSettings.runtime.apiBaseUrl.replace(/\/+$/, '')}/api`);
+const languageLabelKey = computed(() => {
+  switch (appSettings.general.language) {
+    case 'vi':
+      return 'settings.vietnamese';
+    case 'zh':
+      return 'settings.chinese';
+    default:
+      return 'settings.english';
+  }
+});
 const summaryCards = computed(() => [
-  { label: t('settings.activeLanguage'), value: t(appSettings.general.language === 'vi' ? 'settings.vietnamese' : 'settings.english') },
+  { label: t('settings.activeLanguage'), value: t(languageLabelKey.value) },
   { label: t('settings.appVersion'), value: `v${appSettings.about.appVersion}` },
   { label: t('settings.buildDate'), value: appSettings.about.buildDate },
 ]);
@@ -45,7 +55,7 @@ const checkedAtLabel = computed(() => {
 });
 
 const releaseDateLabel = computed(() => {
-  if (!updateState.releaseDate) return 'N/A';
+  if (!updateState.releaseDate) return t('common.notAvailable');
   return new Date(updateState.releaseDate).toLocaleString();
 });
 
@@ -78,6 +88,26 @@ const checkUpdates = async (silent = false) => {
 
 const openUpdatePage = () => {
   updates.openUpdateUrl();
+};
+
+const applyUpdate = async () => {
+  const accepted = await feedback.confirmAction({
+    title: t('common.pleaseConfirm'),
+    message: t('settings.updateConfirm', { version: updateState.latestVersion || 'latest' }),
+    confirmText: t('settings.updateNow'),
+    cancelText: t('common.cancel'),
+  });
+  if (!accepted) return;
+
+  try {
+    const result = await updates.apply();
+    feedback.info(result.message || t('settings.updateStarted'));
+    window.setTimeout(() => {
+      window.location.reload();
+    }, 12000);
+  } catch {
+    feedback.error(updateState.message || t('common.actionFailed'));
+  }
 };
 
 onMounted(() => {
@@ -119,6 +149,7 @@ onMounted(() => {
             <select v-model="appSettings.general.language" class="app-select">
               <option value="vi">{{ t('settings.vietnamese') }}</option>
               <option value="en">{{ t('settings.english') }}</option>
+              <option value="zh">{{ t('settings.chinese') }}</option>
             </select>
           </label>
 
@@ -225,9 +256,9 @@ onMounted(() => {
           <label class="block">
             <span class="mb-2 block text-sm font-semibold">{{ t('settings.terminalTheme') }}</span>
             <select v-model="appSettings.runtime.terminalTheme" class="app-select">
-              <option value="ocean">Ocean Blue</option>
-              <option value="matrix">Matrix Green</option>
-              <option value="amber">Amber Gold</option>
+              <option value="ocean">{{ t('settings.themeOcean') }}</option>
+              <option value="matrix">{{ t('settings.themeMatrix') }}</option>
+              <option value="amber">{{ t('settings.themeAmber') }}</option>
             </select>
           </label>
 
@@ -280,7 +311,7 @@ onMounted(() => {
               </div>
               <div>
                 <p class="text-[11px] uppercase tracking-[0.22em]" style="color: var(--text-muted);">{{ t('settings.latestVersion') }}</p>
-                <p class="mt-2 text-xl font-bold">{{ updateState.latestVersion ? `v${updateState.latestVersion}` : 'N/A' }}</p>
+                <p class="mt-2 text-xl font-bold">{{ updateState.latestVersion ? `v${updateState.latestVersion}` : t('common.notAvailable') }}</p>
               </div>
               <div>
                 <p class="text-[11px] uppercase tracking-[0.22em]" style="color: var(--text-muted);">{{ t('settings.lastChecked') }}</p>
@@ -304,10 +335,18 @@ onMounted(() => {
             <button
               class="btn btn-primary"
               type="button"
-              :disabled="updateState.status !== 'available'"
-              @click="openUpdatePage"
+              :disabled="updateState.status !== 'available' || updateState.applying"
+              @click="applyUpdate"
             >
               {{ t('settings.updateNow') }}
+            </button>
+            <button
+              class="btn btn-ghost"
+              type="button"
+              :disabled="updateState.status === 'checking'"
+              @click="openUpdatePage"
+            >
+              {{ t('settings.openUpdatePage') }}
             </button>
           </div>
         </div>
@@ -361,9 +400,9 @@ onMounted(() => {
           <div class="px-4 py-3 font-semibold" style="background: var(--table-header-bg);">{{ t('settings.buildDate') }}</div>
           <div class="px-4 py-3" style="background: var(--bg-card);">{{ appSettings.about.buildDate }}</div>
           <div class="px-4 py-3 font-semibold" style="background: var(--table-header-bg);">{{ t('settings.engine') }}</div>
-          <div class="px-4 py-3" style="background: var(--bg-card);">{{ props.systemInfo?.ServerVersion || 'N/A' }}</div>
+          <div class="px-4 py-3" style="background: var(--bg-card);">{{ props.systemInfo?.ServerVersion || t('common.notAvailable') }}</div>
           <div class="px-4 py-3 font-semibold" style="background: var(--table-header-bg);">{{ t('settings.os') }}</div>
-          <div class="px-4 py-3" style="background: var(--bg-card);">{{ props.systemInfo?.OperatingSystem || 'N/A' }}</div>
+          <div class="px-4 py-3" style="background: var(--bg-card);">{{ props.systemInfo?.OperatingSystem || t('common.notAvailable') }}</div>
         </div>
       </section>
     </div>

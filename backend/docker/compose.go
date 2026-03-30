@@ -38,6 +38,7 @@ type ComposeProject struct {
 
 type ComposeProjectFile struct {
 	Path    string `json:"path"`
+	Kind    string `json:"kind,omitempty"`
 	Content string `json:"content,omitempty"`
 	Error   string `json:"error,omitempty"`
 }
@@ -223,6 +224,7 @@ func GetComposeProjectFiles(project string) ([]ComposeProjectFile, error) {
 	for _, descriptor := range descriptors {
 		f := ComposeProjectFile{
 			Path: descriptor.Path,
+			Kind: descriptor.Kind,
 		}
 		content, readErr := os.ReadFile(descriptor.Path)
 		if readErr != nil {
@@ -283,6 +285,10 @@ func ValidateComposeProjectFile(project string, path string, content string) (Co
 			}
 			payload = string(raw)
 			source = descriptor.Path
+		}
+
+		if descriptor.Kind != "compose" {
+			continue
 		}
 
 		if err := validateComposeYAML(payload); err != nil {
@@ -361,6 +367,7 @@ func parseConfigFiles(raw string) []string {
 
 type composeFileDescriptor struct {
 	Path string
+	Kind string
 }
 
 func listProjectFiles(containers []types.Container) []composeFileDescriptor {
@@ -371,23 +378,42 @@ func listProjectFiles(containers []types.Container) []composeFileDescriptor {
 	labels := containers[0].Labels
 	workingDir := strings.TrimSpace(labels["com.docker.compose.project.working_dir"])
 	composePaths := parseConfigFiles(labels["com.docker.compose.project.config_files"])
+	envPaths := parseConfigFiles(labels["com.docker.compose.project.environment_file"])
 
 	out := make([]composeFileDescriptor, 0, len(composePaths))
 	seen := map[string]struct{}{}
 
 	for _, path := range composePaths {
-		path = resolveComposeFilePath(workingDir, path)
-		if path == "" {
-			continue
+		appendComposeProjectFile(&out, seen, workingDir, path, "compose")
+	}
+
+	for _, path := range envPaths {
+		appendComposeProjectFile(&out, seen, workingDir, path, "env")
+	}
+
+	defaultEnvPath := resolveComposeFilePath(workingDir, ".env")
+	if defaultEnvPath != "" {
+		if _, statErr := os.Stat(defaultEnvPath); statErr == nil {
+			appendComposeProjectFile(&out, seen, "", defaultEnvPath, "env")
 		}
-		if _, ok := seen[path]; ok {
-			continue
-		}
-		seen[path] = struct{}{}
-		out = append(out, composeFileDescriptor{Path: path})
 	}
 
 	return out
+}
+
+func appendComposeProjectFile(out *[]composeFileDescriptor, seen map[string]struct{}, workingDir string, rawPath string, kind string) {
+	path := resolveComposeFilePath(workingDir, rawPath)
+	if path == "" {
+		return
+	}
+	if _, ok := seen[path]; ok {
+		return
+	}
+	seen[path] = struct{}{}
+	*out = append(*out, composeFileDescriptor{
+		Path: path,
+		Kind: kind,
+	})
 }
 
 func resolveComposeFilePath(workingDir string, composePath string) string {

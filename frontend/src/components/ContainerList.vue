@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import {
     Play,
     Square,
@@ -30,6 +31,7 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
 dayjs.extend(relativeTime);
+const { t } = useI18n();
 
 const containers = ref<any[]>([]);
 const loading = ref(true);
@@ -68,9 +70,9 @@ let terminalDataDisposable: { dispose: () => void } | null = null;
 let terminalContainerName = '';
 
 const terminalThemeOptions = [
-    { value: 'ocean', label: 'Ocean Blue' },
-    { value: 'matrix', label: 'Matrix Green' },
-    { value: 'amber', label: 'Amber Gold' },
+    { value: 'ocean', label: t('settings.themeOcean') },
+    { value: 'matrix', label: t('settings.themeMatrix') },
+    { value: 'amber', label: t('settings.themeAmber') },
 ] as const;
 
 const getTerminalTheme = (themeName: 'ocean' | 'matrix' | 'amber') => {
@@ -216,6 +218,7 @@ const pageEnd = computed(() => Math.min(currentPage.value * pageSize.value, tota
 const pageContainerIds = computed(() => paginatedContainers.value.map((c) => c.Id));
 const selectedCount = computed(() => selectedIds.value.length);
 const allPageSelected = computed(() => pageContainerIds.value.length > 0 && pageContainerIds.value.every((id) => selectedIds.value.includes(id)));
+const getContainerName = (container: any) => container?.Names?.[0]?.replace('/', '') || container?.Id?.substring(0, 12) || '';
 
 const toggleSelect = (id: string) => {
     if (selectedIds.value.includes(id)) {
@@ -237,9 +240,9 @@ const bulkDelete = async () => {
     if (selectedIds.value.length === 0) return;
     const removeCount = selectedIds.value.length;
     const accepted = await feedback.confirmAction({
-        title: 'Delete Containers',
-        message: `Remove ${removeCount} selected container(s)? This action cannot be undone.`,
-        confirmText: 'Delete',
+        title: t('containersView.deleteManyTitle'),
+        message: t('containersView.deleteManyMessage', { count: removeCount }),
+        confirmText: t('common.delete'),
         danger: true,
         requireText: appSettings.safety.softDeleteRequireTyping ? 'DELETE' : undefined,
     });
@@ -250,7 +253,7 @@ const bulkDelete = async () => {
         }
         selectedIds.value = [];
         await fetchContainers();
-        feedback.success(`Deleted ${removeCount} container(s) successfully.`);
+        feedback.success(t('containersView.deletedManySuccess', { count: removeCount }));
     } catch (err) {
         feedback.error(`Bulk delete failed: ${err}`);
     }
@@ -259,9 +262,9 @@ const bulkDelete = async () => {
 const pruneContainers = async () => {
     if (pruning.value) return;
     const accepted = await feedback.confirmAction({
-        title: 'Prune Containers',
-        message: 'Remove all stopped containers?',
-        confirmText: 'Prune',
+        title: t('containersView.pruneTitle'),
+        message: t('containersView.pruneMessage'),
+        confirmText: t('common.prune'),
         danger: true,
         requireText: appSettings.safety.softDeleteRequireTyping ? 'PRUNE' : undefined,
     });
@@ -272,9 +275,9 @@ const pruneContainers = async () => {
         const { data } = await dockerApi.pruneContainers();
         await fetchContainers();
         const deletedCount = Array.isArray(data?.ContainersDeleted) ? data.ContainersDeleted.length : 0;
-        feedback.success(`Pruned ${deletedCount} stopped container(s).`);
+        feedback.success(t('containersView.prunedSuccess', { count: deletedCount }));
     } catch (err) {
-        feedback.error(`Container prune failed: ${err}`);
+        feedback.error(t('containersView.pruneFailed', { error: String(err) }));
     } finally {
         pruning.value = false;
     }
@@ -296,11 +299,11 @@ const bulkStart = async () => {
 
     await fetchContainers();
     if (failed === 0) {
-        feedback.success(`Started ${total} container(s) successfully.`);
+        feedback.success(t('containersView.startedManySuccess', { count: total }));
     } else if (failed === total) {
-        feedback.error('Bulk start failed for all selected containers.');
+        feedback.error(t('containersView.startedAllFailed'));
     } else {
-        feedback.warning(`Started ${total - failed}/${total} container(s).`);
+        feedback.warning(t('containersView.startedPartial', { success: total - failed, total }));
     }
 };
 
@@ -320,11 +323,11 @@ const bulkRestart = async () => {
 
     await fetchContainers();
     if (failed === 0) {
-        feedback.success(`Restarted ${total} container(s) successfully.`);
+        feedback.success(t('containersView.restartedManySuccess', { count: total }));
     } else if (failed === total) {
-        feedback.error('Bulk restart failed for all selected containers.');
+        feedback.error(t('containersView.restartedAllFailed'));
     } else {
-        feedback.warning(`Restarted ${total - failed}/${total} container(s).`);
+        feedback.warning(t('containersView.restartedPartial', { success: total - failed, total }));
     }
 };
 
@@ -399,10 +402,10 @@ const openLogs = (container: any) => {
 
     const tail = Math.max(50, Number(appSettings.runtime.defaultLogTail) || 300);
     logsSocket = new WebSocket(getWsUrl(`/logs/${container.Id}?tail=${tail}`));
-    logsSocket.onopen = () => appendLogs(`[connected] Streaming logs for ${container.Names?.[0]?.replace('/', '')}\n`);
+    logsSocket.onopen = () => appendLogs(`${t('containersView.logsConnected', { name: getContainerName(container) })}\n`);
     logsSocket.onmessage = (event) => appendLogs(String(event.data));
-    logsSocket.onerror = () => appendLogs('\n[error] Failed to read logs stream.\n');
-    logsSocket.onclose = () => appendLogs('\n[closed] Log stream closed.\n');
+    logsSocket.onerror = () => appendLogs(`\n${t('containersView.logsError')}\n`);
+    logsSocket.onclose = () => appendLogs(`\n${t('containersView.logsClosed')}\n`);
 };
 
 const handleLogsScroll = () => {
@@ -469,32 +472,32 @@ const toggleTerminalSize = async () => {
 const copyTerminalSelection = async () => {
     const selectedText = xterm?.getSelection()?.trim() || '';
     if (!selectedText) {
-        feedback.warning('Select terminal text first.');
+        feedback.warning(t('containersView.selectTerminalText'));
         return;
     }
     try {
         await navigator.clipboard.writeText(selectedText);
-        feedback.success('Terminal selection copied.');
+        feedback.success(t('containersView.selectionCopied'));
     } catch (err) {
-        feedback.error(`Failed to copy terminal text: ${err}`);
+        feedback.error(t('containersView.copyFailed', { error: String(err) }));
     }
 };
 
 const pasteIntoTerminal = async () => {
     if (!terminalSocket || terminalSocket.readyState !== WebSocket.OPEN) {
-        feedback.warning('Terminal is not connected.');
+        feedback.warning(t('containersView.terminalNotConnected'));
         return;
     }
     try {
         const text = await navigator.clipboard.readText();
         if (!text) {
-            feedback.warning('Clipboard is empty.');
+            feedback.warning(t('containersView.clipboardEmpty'));
             return;
         }
         terminalSocket.send(text);
         xterm?.focus();
     } catch (err) {
-        feedback.error(`Failed to paste into terminal: ${err}`);
+        feedback.error(t('containersView.pasteFailed', { error: String(err) }));
     }
 };
 
@@ -513,7 +516,7 @@ const toggleTerminalFullscreen = async () => {
         fitAddon?.fit();
         xterm?.focus();
     } catch (err) {
-        feedback.error(`Failed to toggle terminal fullscreen: ${err}`);
+        feedback.error(t('containersView.fullscreenFailed', { error: String(err) }));
     }
 };
 
@@ -538,22 +541,22 @@ const openTerminal = async (container: any) => {
         terminalSocket.onopen = () => {
             terminalReconnectAttempts = 0;
             if (!silent) {
-                writeTerminal(`\r\n[connected] Terminal attached to ${terminalContainerName}\r\n`);
+                writeTerminal(`\r\n${t('containersView.terminalConnected', { name: terminalContainerName })}\r\n`);
             }
             xterm?.focus();
         };
         terminalSocket.onmessage = (event) => writeTerminal(String(event.data));
-        terminalSocket.onerror = () => writeTerminal('\r\n[error] Terminal connection failed.\r\n');
+        terminalSocket.onerror = () => writeTerminal(`\r\n${t('containersView.terminalError')}\r\n`);
         terminalSocket.onclose = () => {
             terminalSocket = null;
             if (terminalManualClose || !showTerminalModal.value) return;
             terminalReconnectAttempts += 1;
             if (terminalReconnectAttempts <= 3) {
-                writeTerminal(`\r\n[reconnect] Terminal disconnected. Reconnecting (${terminalReconnectAttempts}/3)...\r\n`);
+                writeTerminal(`\r\n${t('containersView.terminalReconnect', { attempt: terminalReconnectAttempts })}\r\n`);
                 terminalReconnectTimer = window.setTimeout(() => connectTerminal(true), 900);
                 return;
             }
-            writeTerminal('\r\n[closed] Terminal disconnected.\r\n');
+            writeTerminal(`\r\n${t('containersView.terminalClosed')}\r\n`);
         };
     };
 
@@ -567,9 +570,9 @@ const handleAction = async (action: string, id: string) => {
         else if (action === 'restart') await dockerApi.restartContainer(id);
         else if (action === 'remove') {
             const accepted = await feedback.confirmAction({
-                title: 'Delete Container',
-                message: 'Are you sure you want to remove this container?',
-                confirmText: 'Delete',
+                title: t('containersView.deleteTitle'),
+                message: t('containersView.deleteMessage'),
+                confirmText: t('common.delete'),
                 danger: true,
                 requireText: appSettings.safety.softDeleteRequireTyping ? 'DELETE' : undefined,
             });
@@ -578,12 +581,12 @@ const handleAction = async (action: string, id: string) => {
             selectedIds.value = selectedIds.value.filter((x) => x !== id);
         }
         await fetchContainers();
-        if (action === 'start') feedback.success('Container started successfully.');
-        else if (action === 'stop') feedback.success('Container stopped successfully.');
-        else if (action === 'restart') feedback.success('Container restarted successfully.');
-        else if (action === 'remove') feedback.success('Container removed successfully.');
+        if (action === 'start') feedback.success(t('containersView.startSuccess'));
+        else if (action === 'stop') feedback.success(t('containersView.stopSuccess'));
+        else if (action === 'restart') feedback.success(t('containersView.restartSuccess'));
+        else if (action === 'remove') feedback.success(t('containersView.removeSuccess'));
     } catch (err) {
-        feedback.error(`Action failed: ${err}`);
+        feedback.error(t('containersView.actionFailed', { error: String(err) }));
     }
 };
 
@@ -684,30 +687,30 @@ watch(
         <div class="toolbar glass-panel">
             <div class="search-box">
                 <Search :size="18" />
-                <input ref="searchInput" v-model="searchQuery" type="text" placeholder="Search containers..." />
+                <input ref="searchInput" v-model="searchQuery" type="text" :placeholder="t('containersView.searchPlaceholder')" />
             </div>
             <div class="toolbar-actions">
                 <button class="btn btn-ghost" :disabled="selectedCount === 0 || pruning" @click="bulkStart">
                     <Play :size="16" />
-                    Start
+                    {{ t('compose.start') }}
                 </button>
                 <button class="btn btn-ghost" :disabled="selectedCount === 0 || pruning" @click="bulkRestart">
                     <RefreshCw :size="16" />
-                    Restart
+                    {{ t('compose.restart') }}
                 </button>
                 <button class="btn btn-ghost text-danger" :disabled="selectedCount === 0 || pruning"
                     @click="bulkDelete">
                     <Trash2 :size="16" />
-                    Delete
+                    {{ t('common.delete') }}
                 </button>
                 <button class="btn btn-ghost text-warning" :disabled="pruning" @click="pruneContainers">
                     <RefreshCw v-if="pruning" :size="16" class="animate-spin" />
                     <BrushCleaning v-else :size="16" />
-                    Prune
+                    {{ t('common.prune') }}
                 </button>
                 <button class="btn btn-ghost" :disabled="pruning" @click="fetchContainers">
                     <RefreshCw :size="18" :class="{ 'animate-spin': loading || pruning }" />
-                    Refresh
+                    {{ t('common.refresh') }}
                 </button>
             </div>
         </div>
@@ -720,12 +723,12 @@ watch(
                             <input class="bulk-checkbox" type="checkbox" :checked="allPageSelected"
                                 @change="toggleSelectAllPage" />
                         </th>
-                        <th>Name</th>
-                        <th>Image</th>
-                        <th>Status</th>
-                        <th>Ports</th>
-                        <th>Created</th>
-                        <th class="actions-cell">Actions</th>
+                        <th>{{ t('containersView.name') }}</th>
+                        <th>{{ t('containersView.image') }}</th>
+                        <th>{{ t('containersView.status') }}</th>
+                        <th>{{ t('containersView.ports') }}</th>
+                        <th>{{ t('containersView.created') }}</th>
+                        <th class="actions-cell">{{ t('common.actions') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -761,25 +764,25 @@ watch(
                         <td class="actions-cell">
                             <div class="action-group">
                                 <button v-if="!container.Status.includes('Up')" class="action-btn action-start"
-                                    title="Start" @click="handleAction('start', container.Id)">
+                                    :title="t('compose.start')" @click="handleAction('start', container.Id)">
                                     <Play :size="16" />
                                 </button>
-                                <button v-else class="action-btn action-stop" title="Stop"
+                                <button v-else class="action-btn action-stop" :title="t('compose.stop')"
                                     @click="handleAction('stop', container.Id)">
                                     <Square :size="16" />
                                 </button>
                                 <button class="action-btn action-neutral" :disabled="!container.Status.includes('Up')"
-                                    title="Restart" @click="handleAction('restart', container.Id)">
+                                    :title="t('compose.restart')" @click="handleAction('restart', container.Id)">
                                     <RotateCw :size="16" />
                                 </button>
-                                <button class="action-btn action-neutral" title="Logs" @click="openLogs(container)">
+                                <button class="action-btn action-neutral" :title="t('compose.logs')" @click="openLogs(container)">
                                     <FileText :size="16" />
                                 </button>
-                                <button class="action-btn action-neutral" title="Terminal"
+                                <button class="action-btn action-neutral" :title="t('containersView.terminalTitle', { name: getContainerName(container) })"
                                     @click="openTerminal(container)">
                                     <TerminalIcon :size="16" />
                                 </button>
-                                <button class="action-btn action-danger" title="Remove"
+                                <button class="action-btn action-danger" :title="t('common.remove')"
                                     @click="handleAction('remove', container.Id)">
                                     <Trash2 :size="16" />
                                 </button>
@@ -787,7 +790,7 @@ watch(
                         </td>
                     </tr>
                     <tr v-if="filteredContainers.length === 0 && !loading">
-                        <td colspan="7" class="empty-state">No containers found</td>
+                        <td colspan="7" class="empty-state">{{ t('containersView.noItems') }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -795,16 +798,16 @@ watch(
 
         <div v-if="filteredContainers.length > 0" class="pagination glass-panel">
             <div class="pager-meta">
-                <span>Rows</span>
+                <span>{{ t('common.rows') }}</span>
                 <select v-model.number="pageSize">
                     <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }}</option>
                 </select>
                 <span>{{ pageStart }}-{{ pageEnd }} / {{ totalItems }}</span>
             </div>
             <div class="pager-actions">
-                <button class="btn btn-ghost" :disabled="currentPage === 1" @click="currentPage--">Prev</button>
-                <span class="pager-page">Page {{ currentPage }} / {{ totalPages }}</span>
-                <button class="btn btn-ghost" :disabled="currentPage >= totalPages" @click="currentPage++">Next</button>
+                <button class="btn btn-ghost" :disabled="currentPage === 1" @click="currentPage--">{{ t('common.prev') }}</button>
+                <span class="pager-page">{{ t('common.page') }} {{ currentPage }} / {{ totalPages }}</span>
+                <button class="btn btn-ghost" :disabled="currentPage >= totalPages" @click="currentPage++">{{ t('common.next') }}</button>
             </div>
         </div>
 
@@ -814,41 +817,41 @@ watch(
                     <div class="modal-header">
                         <div class="modal-title-wrap">
                             <div class="window-controls">
-                                <button class="window-control is-close" type="button" title="Close"
-                                    aria-label="Close logs" @click="closeLogs">
+                                <button class="window-control is-close" type="button" :title="t('common.close')"
+                                    :aria-label="t('containersView.closeLogs')" @click="closeLogs">
                                     <X :size="10" />
                                 </button>
                                 <button class="window-control is-minimize" type="button"
-                                    :title="logsModalExpanded ? 'Normal Size' : 'Expand'"
-                                    :aria-label="logsModalExpanded ? 'Normal size' : 'Expand logs'"
+                                    :title="logsModalExpanded ? t('containersView.normalSize') : t('containersView.expand')"
+                                    :aria-label="logsModalExpanded ? t('containersView.normalSize') : t('containersView.expandLogs')"
                                     @click="toggleLogsSize">
                                     <Minimize2 v-if="logsModalExpanded" :size="10" />
                                     <Maximize2 v-else :size="10" />
                                 </button>
                                 <button class="window-control is-zoom" type="button"
-                                    :title="logsFollow ? 'Following' : 'Jump To Latest'"
-                                    :aria-label="logsFollow ? 'Following logs' : 'Jump to latest log'"
+                                    :title="logsFollow ? t('compose.following') : t('containersView.jumpLatest')"
+                                    :aria-label="logsFollow ? t('containersView.followingLogs') : t('containersView.jumpLatest')"
                                     @click="jumpToLatestLogs">
                                     <RefreshCw :size="10" />
                                 </button>
                             </div>
-                            <h3>Logs: {{ activeContainer?.Names?.[0]?.replace('/', '') }}</h3>
+                            <h3>{{ t('containersView.logsTitle', { name: activeContainer?.Names?.[0]?.replace('/', '') || '' }) }}</h3>
                         </div>
                         <div class="modal-actions">
                             <button class="btn btn-ghost btn-icon modal-tool-btn" type="button"
-                                title="Decrease font size" aria-label="Decrease font size"
+                                :title="t('containersView.decreaseFont')" :aria-label="t('containersView.decreaseFont')"
                                 @click="adjustLogsFontSize(-1)">
                                 <Minus :size="14" />
                             </button>
                             <button class="btn btn-ghost btn-icon modal-tool-btn" type="button"
-                                title="Increase font size" aria-label="Increase font size"
+                                :title="t('containersView.increaseFont')" :aria-label="t('containersView.increaseFont')"
                                 @click="adjustLogsFontSize(1)">
                                 <Plus :size="14" />
                             </button>
                             <button class="btn btn-ghost btn-icon modal-tool-btn" type="button"
                                 :class="{ 'is-active': logsFollow }"
-                                :title="logsFollow ? 'Following' : 'Jump To Latest'"
-                                :aria-label="logsFollow ? 'Following logs' : 'Jump to latest log'"
+                                :title="logsFollow ? t('compose.following') : t('containersView.jumpLatest')"
+                                :aria-label="logsFollow ? t('containersView.followingLogs') : t('containersView.jumpLatest')"
                                 @click="jumpToLatestLogs">
                                 <ArrowDownToLine :size="14" />
                             </button>
@@ -865,26 +868,26 @@ watch(
                     <div class="modal-header">
                         <div class="terminal-title-wrap">
                             <div class="window-controls">
-                                <button class="window-control is-close" type="button" title="Close"
-                                    aria-label="Close terminal" @click="closeTerminal">
+                                <button class="window-control is-close" type="button" :title="t('common.close')"
+                                    :aria-label="t('containersView.closeTerminal')" @click="closeTerminal">
                                     <X :size="10" />
                                 </button>
                                 <button class="window-control is-minimize" type="button"
-                                    :title="terminalModalExpanded ? 'Normal Size' : 'Expand'"
-                                    :aria-label="terminalModalExpanded ? 'Normal size' : 'Expand terminal'"
+                                    :title="terminalModalExpanded ? t('containersView.normalSize') : t('containersView.expand')"
+                                    :aria-label="terminalModalExpanded ? t('containersView.normalSize') : t('containersView.expandTerminal')"
                                     @click="toggleTerminalSize">
                                     <Minimize2 v-if="terminalModalExpanded" :size="10" />
                                     <Maximize2 v-else :size="10" />
                                 </button>
                                 <button class="window-control is-zoom" type="button"
-                                    :title="terminalIsFullscreen ? 'Exit Fullscreen' : 'Fullscreen'"
-                                    :aria-label="terminalIsFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'"
+                                    :title="terminalIsFullscreen ? t('containersView.exitFullscreen') : t('containersView.fullscreen')"
+                                    :aria-label="terminalIsFullscreen ? t('containersView.exitFullscreen') : t('containersView.fullscreen')"
                                     @click="toggleTerminalFullscreen">
                                     <Minimize2 v-if="terminalIsFullscreen" :size="10" />
                                     <Maximize2 v-else :size="10" />
                                 </button>
                             </div>
-                            <h3>Terminal: {{ activeContainer?.Names?.[0]?.replace('/', '') }}</h3>
+                            <h3>{{ t('containersView.terminalTitle', { name: activeContainer?.Names?.[0]?.replace('/', '') || '' }) }}</h3>
                             <span class="terminal-shell-pill">{{ appSettings.runtime.terminalShell }}</span>
                         </div>
                         <div class="modal-actions">
@@ -894,22 +897,22 @@ watch(
                                 </option>
                             </select>
                             <button class="btn btn-ghost btn-icon modal-tool-btn" type="button"
-                                title="Decrease font size" aria-label="Decrease font size"
+                                :title="t('containersView.decreaseFont')" :aria-label="t('containersView.decreaseFont')"
                                 @click="adjustTerminalFontSize(-1)">
                                 <Minus :size="14" />
                             </button>
                             <button class="btn btn-ghost btn-icon modal-tool-btn" type="button"
-                                title="Increase font size" aria-label="Increase font size"
+                                :title="t('containersView.increaseFont')" :aria-label="t('containersView.increaseFont')"
                                 @click="adjustTerminalFontSize(1)">
                                 <Plus :size="14" />
                             </button>
                             <button class="btn btn-ghost" @click="copyTerminalSelection">
                                 <Copy :size="14" />
-                                Copy
+                                {{ t('containersView.copy') }}
                             </button>
                             <button class="btn btn-ghost" @click="pasteIntoTerminal">
                                 <ClipboardPaste :size="14" />
-                                Paste
+                                {{ t('containersView.paste') }}
                             </button>
                         </div>
                     </div>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import { Network, Trash2, RefreshCw, BrushCleaning } from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
 import { dockerApi } from '../api';
 import { feedback } from '../ui/feedback';
 import { appSettings } from '../ui/settings';
@@ -14,6 +15,7 @@ const pageSize = ref(loadStoredNumber(NETWORK_PAGE_SIZE_KEY, 10, 10, 50));
 const pageSizeOptions = [10, 20, 50];
 const selectedIds = ref<string[]>([]);
 const pruning = ref(false);
+const { t } = useI18n();
 
 const fetchNetworks = async () => {
     try {
@@ -29,9 +31,9 @@ const fetchNetworks = async () => {
 
 const removeNetwork = async (id: string) => {
     const accepted = await feedback.confirmAction({
-        title: 'Delete Network',
-        message: 'Are you sure you want to remove this network?',
-        confirmText: 'Delete',
+        title: t('networksView.deleteTitle'),
+        message: t('networksView.deleteMessage'),
+        confirmText: t('common.delete'),
         danger: true,
         requireText: appSettings.safety.softDeleteRequireTyping ? 'DELETE' : undefined,
     });
@@ -40,9 +42,9 @@ const removeNetwork = async (id: string) => {
         await dockerApi.removeNetwork(id);
         selectedIds.value = selectedIds.value.filter((x) => x !== id);
         await fetchNetworks();
-        feedback.success('Network removed successfully.');
+        feedback.success(t('networksView.deletedSuccess'));
     } catch (err) {
-        feedback.error(`Failed to remove network: ${err}`);
+        feedback.error(t('networksView.deleteFailed', { error: String(err) }));
     }
 };
 
@@ -50,9 +52,9 @@ const bulkDelete = async () => {
     if (selectedIds.value.length === 0) return;
     const removeCount = selectedIds.value.length;
     const accepted = await feedback.confirmAction({
-        title: 'Delete Networks',
-        message: `Remove ${removeCount} selected network(s)? This action cannot be undone.`,
-        confirmText: 'Delete',
+        title: t('networksView.deleteManyTitle'),
+        message: t('networksView.deleteManyMessage', { count: removeCount }),
+        confirmText: t('common.delete'),
         danger: true,
         requireText: appSettings.safety.softDeleteRequireTyping ? 'DELETE' : undefined,
     });
@@ -63,18 +65,18 @@ const bulkDelete = async () => {
         }
         selectedIds.value = [];
         await fetchNetworks();
-        feedback.success(`Deleted ${removeCount} network(s) successfully.`);
+        feedback.success(t('networksView.deletedManySuccess', { count: removeCount }));
     } catch (err) {
-        feedback.error(`Bulk delete failed: ${err}`);
+        feedback.error(t('networksView.bulkDeleteFailed', { error: String(err) }));
     }
 };
 
 const pruneNetworks = async () => {
     if (pruning.value) return;
     const accepted = await feedback.confirmAction({
-        title: 'Prune Networks',
-        message: 'Remove all unused custom networks? Active and default networks will be kept.',
-        confirmText: 'Prune',
+        title: t('networksView.pruneTitle'),
+        message: t('networksView.pruneMessage'),
+        confirmText: t('common.prune'),
         danger: true,
         requireText: appSettings.safety.softDeleteRequireTyping ? 'PRUNE' : undefined,
     });
@@ -84,9 +86,9 @@ const pruneNetworks = async () => {
         const { data } = await dockerApi.pruneNetworks();
         await fetchNetworks();
         const deletedCount = Array.isArray(data?.NetworksDeleted) ? data.NetworksDeleted.length : 0;
-        feedback.success(`Pruned ${deletedCount} unused network(s).`);
+        feedback.success(t('networksView.prunedSuccess', { count: deletedCount }));
     } catch (err) {
-        feedback.error(`Network prune failed: ${err}`);
+        feedback.error(t('networksView.pruneFailed', { error: String(err) }));
     } finally {
         pruning.value = false;
     }
@@ -135,21 +137,21 @@ onMounted(fetchNetworks);
         <div class="toolbar glass-panel">
             <div class="title-with-icon">
                 <Network :size="20" class="icon-indigo" />
-                <h2>Networks</h2>
+                <h2>{{ t('networksView.title') }}</h2>
             </div>
             <div class="toolbar-actions">
                 <button class="btn btn-ghost text-danger" :disabled="selectedCount === 0 || pruning" @click="bulkDelete">
                     <Trash2 :size="16" />
-                    Delete ({{ selectedCount }})
+                    {{ t('common.delete') }} ({{ selectedCount }})
                 </button>
                 <button class="btn btn-ghost text-warning" :disabled="pruning" @click="pruneNetworks">
                     <RefreshCw v-if="pruning" :size="16" class="animate-spin" />
                     <BrushCleaning v-else :size="16" />
-                    Prune
+                    {{ t('common.prune') }}
                 </button>
                 <button class="btn btn-ghost" :disabled="pruning" @click="fetchNetworks">
                     <RefreshCw :size="18" :class="{ 'animate-spin': loading || pruning }" />
-                    Refresh
+                    {{ t('common.refresh') }}
                 </button>
             </div>
         </div>
@@ -159,12 +161,12 @@ onMounted(fetchNetworks);
                 <thead>
                     <tr>
                         <th class="check-col"><input class="bulk-checkbox" type="checkbox" :checked="allPageSelected" @change="toggleSelectAllPage" /></th>
-                        <th>Name</th>
+                        <th>{{ t('networksView.name') }}</th>
                         <th>ID</th>
-                        <th>Driver</th>
-                        <th>Scope</th>
-                        <th>Internal</th>
-                        <th class="actions-cell">Actions</th>
+                        <th>{{ t('networksView.driver') }}</th>
+                        <th>{{ t('networksView.scope') }}</th>
+                        <th>{{ t('networksView.internal') }}</th>
+                        <th class="actions-cell">{{ t('common.actions') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -174,17 +176,17 @@ onMounted(fetchNetworks);
                         <td><code>{{ net.Id.substring(0, 12) }}</code></td>
                         <td>{{ net.Driver }}</td>
                         <td>{{ net.Scope }}</td>
-                        <td>{{ net.Internal ? 'Yes' : 'No' }}</td>
+                        <td>{{ net.Internal ? t('common.yes') : t('common.no') }}</td>
                         <td class="actions-cell">
                             <div class="action-group">
-                                <button class="action-btn action-danger" title="Remove" @click="removeNetwork(net.Id)">
+                                <button class="action-btn action-danger" :title="t('common.remove')" @click="removeNetwork(net.Id)">
                                     <Trash2 :size="16" />
                                 </button>
                             </div>
                         </td>
                     </tr>
                     <tr v-if="networks.length === 0 && !loading">
-                        <td colspan="7" class="empty-state">No networks found</td>
+                        <td colspan="7" class="empty-state">{{ t('networksView.noItems') }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -192,16 +194,16 @@ onMounted(fetchNetworks);
 
         <div v-if="networks.length > 0" class="pagination glass-panel">
             <div class="pager-meta">
-                <span>Rows</span>
+                <span>{{ t('common.rows') }}</span>
                 <select v-model.number="pageSize">
                     <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }}</option>
                 </select>
                 <span>{{ pageStart }}-{{ pageEnd }} / {{ totalItems }}</span>
             </div>
             <div class="pager-actions">
-                <button class="btn btn-ghost" :disabled="currentPage === 1" @click="currentPage--">Prev</button>
-                <span class="pager-page">Page {{ currentPage }} / {{ totalPages }}</span>
-                <button class="btn btn-ghost" :disabled="currentPage >= totalPages" @click="currentPage++">Next</button>
+                <button class="btn btn-ghost" :disabled="currentPage === 1" @click="currentPage--">{{ t('common.prev') }}</button>
+                <span class="pager-page">{{ t('common.page') }} {{ currentPage }} / {{ totalPages }}</span>
+                <button class="btn btn-ghost" :disabled="currentPage >= totalPages" @click="currentPage++">{{ t('common.next') }}</button>
             </div>
         </div>
     </div>

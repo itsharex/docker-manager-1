@@ -85,7 +85,7 @@ watch(
           </div>
           <div class="relative flex h-full flex-col justify-between">
             <div>
-              <p class="mb-3 text-[11px] uppercase tracking-[0.26em]" style="color: var(--text-muted);">Docker Access Node</p>
+              <p class="mb-3 text-[11px] uppercase tracking-[0.26em]" style="color: var(--text-muted);">{{ t('auth.accessNode') }}</p>
               <h1 class="max-w-md text-5xl font-bold leading-none tracking-tight">
                 {{ t('auth.leftTitle') }}
               </h1>
@@ -138,7 +138,7 @@ watch(
                 <span class="mb-2 block text-sm font-semibold">{{ t('auth.username') }}</span>
                 <div class="flex items-center gap-3 border px-4 py-3" style="border-color: var(--glass-border); background: var(--input-bg);">
                   <UserRound :size="16" style="color: var(--text-muted);" />
-                  <input v-model="username" class="min-w-0 flex-1 bg-transparent outline-none" type="text" autocomplete="username" placeholder="admin" :disabled="loading" />
+                  <input v-model="username" class="min-w-0 flex-1 bg-transparent outline-none" type="text" autocomplete="username" :placeholder="t('auth.usernamePlaceholder')" :disabled="loading" />
                 </div>
               </label>
 
@@ -146,7 +146,7 @@ watch(
                 <span class="mb-2 block text-sm font-semibold">{{ t('auth.password') }}</span>
                 <div class="flex items-center gap-3 border px-4 py-3" style="border-color: var(--glass-border); background: var(--input-bg);">
                   <LockKeyhole :size="16" style="color: var(--text-muted);" />
-                  <input v-model="password" class="min-w-0 flex-1 bg-transparent outline-none" type="password" autocomplete="current-password" placeholder="••••••••" :disabled="loading" />
+                  <input v-model="password" class="min-w-0 flex-1 bg-transparent outline-none" type="password" autocomplete="current-password" :placeholder="t('auth.passwordPlaceholder')" :disabled="loading" />
                 </div>
               </label>
 
@@ -154,7 +154,7 @@ watch(
                 <span class="mb-2 block text-sm font-semibold">{{ t('auth.confirmPassword') }}</span>
                 <div class="flex items-center gap-3 border px-4 py-3" style="border-color: var(--glass-border); background: var(--input-bg);">
                   <LockKeyhole :size="16" style="color: var(--text-muted);" />
-                  <input v-model="confirmPassword" class="min-w-0 flex-1 bg-transparent outline-none" type="password" autocomplete="new-password" placeholder="Repeat password" :disabled="loading" />
+                  <input v-model="confirmPassword" class="min-w-0 flex-1 bg-transparent outline-none" type="password" autocomplete="new-password" :placeholder="t('auth.repeatPasswordPlaceholder')" :disabled="loading" />
                 </div>
               </label>
 

@@ -50,6 +50,7 @@ func SetupRouter() *mux.Router {
 	api.HandleFunc("/disk-usage", DiskUsageHandler).Methods("GET")
 	api.HandleFunc("/dashboard/metrics", DashboardMetricsHandler).Methods("GET")
 	api.HandleFunc("/app-updates/check", CheckAppUpdatesHandler).Methods("GET")
+	api.HandleFunc("/app-updates/apply", ApplyAppUpdateHandler).Methods("POST")
 
 	// Compose routes
 	api.HandleFunc("/compose/projects", ListComposeProjectsHandler).Methods("GET")

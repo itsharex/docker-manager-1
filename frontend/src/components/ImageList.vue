@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import { Box, Trash2, RefreshCw, BrushCleaning } from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
 import { dockerApi } from '../api';
 import { feedback } from '../ui/feedback';
 import { appSettings } from '../ui/settings';
@@ -15,6 +16,7 @@ const pageSize = ref(loadStoredNumber(IMAGE_PAGE_SIZE_KEY, 10, 10, 50));
 const pageSizeOptions = [10, 20, 50];
 const selectedIds = ref<string[]>([]);
 const pruning = ref(false);
+const { t } = useI18n();
 
 const formatBytes = (bytes?: number) => {
     if (!bytes || bytes <= 0) return '0 B';
@@ -42,9 +44,9 @@ const fetchImages = async () => {
 
 const removeImage = async (id: string) => {
     const accepted = await feedback.confirmAction({
-        title: 'Delete Image',
-        message: 'Are you sure you want to remove this image?',
-        confirmText: 'Delete',
+        title: t('imagesView.deleteTitle'),
+        message: t('imagesView.deleteMessage'),
+        confirmText: t('common.delete'),
         danger: true,
         requireText: appSettings.safety.softDeleteRequireTyping ? 'DELETE' : undefined,
     });
@@ -53,9 +55,9 @@ const removeImage = async (id: string) => {
         await dockerApi.removeImage(id);
         selectedIds.value = selectedIds.value.filter((x) => x !== id);
         await fetchImages();
-        feedback.success('Image removed successfully.');
+        feedback.success(t('imagesView.deletedSuccess'));
     } catch (err) {
-        feedback.error(`Failed to remove image: ${err}`);
+        feedback.error(t('imagesView.deleteFailed', { error: String(err) }));
     }
 };
 
@@ -63,9 +65,9 @@ const bulkDelete = async () => {
     if (selectedIds.value.length === 0) return;
     const removeCount = selectedIds.value.length;
     const accepted = await feedback.confirmAction({
-        title: 'Delete Images',
-        message: `Remove ${removeCount} selected image(s)? This action cannot be undone.`,
-        confirmText: 'Delete',
+        title: t('imagesView.deleteManyTitle'),
+        message: t('imagesView.deleteManyMessage', { count: removeCount }),
+        confirmText: t('common.delete'),
         danger: true,
         requireText: appSettings.safety.softDeleteRequireTyping ? 'DELETE' : undefined,
     });
@@ -76,18 +78,18 @@ const bulkDelete = async () => {
         }
         selectedIds.value = [];
         await fetchImages();
-        feedback.success(`Deleted ${removeCount} image(s) successfully.`);
+        feedback.success(t('imagesView.deletedManySuccess', { count: removeCount }));
     } catch (err) {
-        feedback.error(`Bulk delete failed: ${err}`);
+        feedback.error(t('imagesView.bulkDeleteFailed', { error: String(err) }));
     }
 };
 
 const pruneImages = async () => {
     if (pruning.value) return;
     const accepted = await feedback.confirmAction({
-        title: 'Prune Images',
-        message: 'Remove all unused images? This also clears dangling layers.',
-        confirmText: 'Prune',
+        title: t('imagesView.pruneTitle'),
+        message: t('imagesView.pruneMessage'),
+        confirmText: t('common.prune'),
         danger: true,
         requireText: appSettings.safety.softDeleteRequireTyping ? 'PRUNE' : undefined,
     });
@@ -98,9 +100,9 @@ const pruneImages = async () => {
         await fetchImages();
         const deletedCount = Array.isArray(data?.ImagesDeleted) ? data.ImagesDeleted.length : 0;
         const reclaimed = formatBytes(Number(data?.SpaceReclaimed || 0));
-        feedback.success(`Pruned ${deletedCount} unused image(s), reclaimed ${reclaimed}.`);
+        feedback.success(t('imagesView.prunedSuccess', { count: deletedCount, size: reclaimed }));
     } catch (err) {
-        feedback.error(`Image prune failed: ${err}`);
+        feedback.error(t('imagesView.pruneFailed', { error: String(err) }));
     } finally {
         pruning.value = false;
     }
@@ -151,21 +153,21 @@ onMounted(fetchImages);
         <div class="toolbar glass-panel">
             <div class="title-with-icon">
                 <Box :size="20" class="icon-indigo" />
-                <h2>Images</h2>
+                <h2>{{ t('imagesView.title') }}</h2>
             </div>
             <div class="toolbar-actions">
                 <button class="btn btn-ghost text-danger" :disabled="selectedCount === 0" @click="bulkDelete">
                     <Trash2 :size="16" />
-                    Delete ({{ selectedCount }})
+                    {{ t('common.delete') }} ({{ selectedCount }})
                 </button>
                 <button class="btn btn-ghost text-warning" :disabled="pruning" @click="pruneImages">
                     <RefreshCw v-if="pruning" :size="16" class="animate-spin" />
                     <BrushCleaning v-else :size="16" />
-                    Prune
+                    {{ t('common.prune') }}
                 </button>
                 <button class="btn btn-ghost" :disabled="pruning" @click="fetchImages">
                     <RefreshCw :size="18" :class="{ 'animate-spin': loading || pruning }" />
-                    Refresh
+                    {{ t('common.refresh') }}
                 </button>
             </div>
         </div>
@@ -175,11 +177,11 @@ onMounted(fetchImages);
                 <thead>
                     <tr>
                         <th class="check-col"><input class="bulk-checkbox" type="checkbox" :checked="allPageSelected" @change="toggleSelectAllPage" /></th>
-                        <th>Repository:Tag</th>
+                        <th>{{ t('imagesView.repositoryTag') }}</th>
                         <th>ID</th>
-                        <th>Size</th>
-                        <th>Created</th>
-                        <th class="actions-cell">Actions</th>
+                        <th>{{ t('imagesView.size') }}</th>
+                        <th>{{ t('imagesView.created') }}</th>
+                        <th class="actions-cell">{{ t('common.actions') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -191,14 +193,14 @@ onMounted(fetchImages);
                         <td>{{ dayjs.unix(image.Created).format('YYYY-MM-DD HH:mm') }}</td>
                         <td class="actions-cell">
                             <div class="action-group">
-                                <button class="action-btn action-danger" title="Remove" @click="removeImage(image.Id)">
+                                <button class="action-btn action-danger" :title="t('common.remove')" @click="removeImage(image.Id)">
                                     <Trash2 :size="16" />
                                 </button>
                             </div>
                         </td>
                     </tr>
                     <tr v-if="images.length === 0 && !loading">
-                        <td colspan="6" class="empty-state">No images found</td>
+                        <td colspan="6" class="empty-state">{{ t('imagesView.noItems') }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -206,16 +208,16 @@ onMounted(fetchImages);
 
         <div v-if="images.length > 0" class="pagination glass-panel">
             <div class="pager-meta">
-                <span>Rows</span>
+                <span>{{ t('common.rows') }}</span>
                 <select v-model.number="pageSize">
                     <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }}</option>
                 </select>
                 <span>{{ pageStart }}-{{ pageEnd }} / {{ totalItems }}</span>
             </div>
             <div class="pager-actions">
-                <button class="btn btn-ghost" :disabled="currentPage === 1" @click="currentPage--">Prev</button>
-                <span class="pager-page">Page {{ currentPage }} / {{ totalPages }}</span>
-                <button class="btn btn-ghost" :disabled="currentPage >= totalPages" @click="currentPage++">Next</button>
+                <button class="btn btn-ghost" :disabled="currentPage === 1" @click="currentPage--">{{ t('common.prev') }}</button>
+                <span class="pager-page">{{ t('common.page') }} {{ currentPage }} / {{ totalPages }}</span>
+                <button class="btn btn-ghost" :disabled="currentPage >= totalPages" @click="currentPage++">{{ t('common.next') }}</button>
             </div>
         </div>
     </div>
