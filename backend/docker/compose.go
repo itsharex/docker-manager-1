@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"encoding/base64"
 	"bytes"
 	"fmt"
 	"io"
@@ -12,6 +13,8 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	dockerimage "github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/pkg/stdcopy"
 	"gopkg.in/yaml.v3"
 )
@@ -47,6 +50,8 @@ type ComposeValidationResult struct {
 	Valid bool   `json:"valid"`
 	Error string `json:"error,omitempty"`
 }
+
+const composeFileHelperImage = "docker:cli"
 
 func ListComposeProjects() ([]ComposeProject, error) {
 	all, err := Cli.ContainerList(Ctx(), container.ListOptions{All: true})
@@ -226,11 +231,11 @@ func GetComposeProjectFiles(project string) ([]ComposeProjectFile, error) {
 			Path: descriptor.Path,
 			Kind: descriptor.Kind,
 		}
-		content, readErr := os.ReadFile(descriptor.Path)
+		content, readErr := readComposeProjectFile(descriptor.Path)
 		if readErr != nil {
 			f.Error = readErr.Error()
 		} else {
-			f.Content = string(content)
+			f.Content = content
 		}
 		files = append(files, f)
 	}
@@ -253,7 +258,7 @@ func UpdateComposeProjectFile(project string, path string, content string) error
 		return fmt.Errorf("file %q is not part of compose project %q", path, project)
 	}
 
-	if writeErr := os.WriteFile(path, []byte(content), 0o644); writeErr != nil {
+	if writeErr := writeComposeProjectFile(path, content); writeErr != nil {
 		return writeErr
 	}
 
@@ -279,11 +284,11 @@ func ValidateComposeProjectFile(project string, path string, content string) (Co
 		source := descriptor.Path
 		payload := content
 		if descriptor.Path != path {
-			raw, readErr := os.ReadFile(descriptor.Path)
+			raw, readErr := readComposeProjectFile(descriptor.Path)
 			if readErr != nil {
 				return ComposeValidationResult{Valid: false, Error: fmt.Sprintf("%s: %v", filepath.Base(descriptor.Path), readErr)}, nil
 			}
-			payload = string(raw)
+			payload = raw
 			source = descriptor.Path
 		}
 
@@ -393,7 +398,7 @@ func listProjectFiles(containers []types.Container) []composeFileDescriptor {
 
 	defaultEnvPath := resolveComposeFilePath(workingDir, ".env")
 	if defaultEnvPath != "" {
-		if _, statErr := os.Stat(defaultEnvPath); statErr == nil {
+		if fileExists(defaultEnvPath) {
 			appendComposeProjectFile(&out, seen, "", defaultEnvPath, "env")
 		}
 	}
@@ -431,6 +436,177 @@ func resolveComposeFilePath(workingDir string, composePath string) string {
 	}
 
 	return filepath.Clean(filepath.Join(workingDir, composePath))
+}
+
+func fileExists(path string) bool {
+	if strings.TrimSpace(path) == "" {
+		return false
+	}
+	if _, err := os.Stat(path); err == nil {
+		return true
+	}
+	ok, err := hostFileExists(path)
+	return err == nil && ok
+}
+
+func readComposeProjectFile(path string) (string, error) {
+	content, err := os.ReadFile(path)
+	if err == nil {
+		return string(content), nil
+	}
+	if !filepath.IsAbs(path) {
+		return "", err
+	}
+	return readHostFile(path)
+}
+
+func writeComposeProjectFile(path string, content string) error {
+	if err := os.WriteFile(path, []byte(content), 0o644); err == nil {
+		return nil
+	} else if !filepath.IsAbs(path) {
+		return err
+	}
+	return writeHostFile(path, content)
+}
+
+func hostFileExists(path string) (bool, error) {
+	parentDir := filepath.Dir(path)
+	if parentDir == "" {
+		parentDir = "/"
+	}
+	_, err := runHostFileHelper(parentDir, []string{
+		"TARGET_FILE=" + path,
+	}, `if [ -f "$TARGET_FILE" ]; then exit 0; fi; exit 1`)
+	if err != nil {
+		if strings.Contains(err.Error(), "exit code 1") {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+func readHostFile(path string) (string, error) {
+	parentDir := filepath.Dir(path)
+	if parentDir == "" {
+		parentDir = "/"
+	}
+	return runHostFileHelper(parentDir, []string{
+		"TARGET_FILE=" + path,
+	}, `cat "$TARGET_FILE"`)
+}
+
+func writeHostFile(path string, content string) error {
+	parentDir := filepath.Dir(path)
+	if parentDir == "" {
+		parentDir = "/"
+	}
+	_, err := runHostFileHelper(parentDir, []string{
+		"TARGET_DIR=" + parentDir,
+		"TARGET_FILE=" + path,
+		"FILE_CONTENT_B64=" + base64.StdEncoding.EncodeToString([]byte(content)),
+	}, `mkdir -p "$TARGET_DIR" && printf '%s' "$FILE_CONTENT_B64" | base64 -d > "$TARGET_FILE"`)
+	return err
+}
+
+func ensureComposeFileHelperImage() error {
+	if _, _, err := Cli.ImageInspectWithRaw(Ctx(), composeFileHelperImage); err == nil {
+		return nil
+	} else if !errdefs.IsNotFound(err) {
+		return err
+	}
+
+	pullResp, err := Cli.ImagePull(Ctx(), composeFileHelperImage, dockerimage.PullOptions{})
+	if err != nil {
+		return err
+	}
+	defer pullResp.Close()
+	_, _ = io.Copy(io.Discard, pullResp)
+	return nil
+}
+
+func runHostFileHelper(mountDir string, env []string, script string) (string, error) {
+	if strings.TrimSpace(mountDir) == "" {
+		return "", fmt.Errorf("missing host mount directory")
+	}
+	if err := ensureComposeFileHelperImage(); err != nil {
+		return "", fmt.Errorf("prepare helper image: %w", err)
+	}
+
+	helper, err := Cli.ContainerCreate(
+		Ctx(),
+		&container.Config{
+			Image:      composeFileHelperImage,
+			Entrypoint: []string{"sh", "-lc"},
+			Cmd:        []string{script},
+			Env:        env,
+		},
+		&container.HostConfig{
+			Binds: []string{
+				fmt.Sprintf("%s:%s", mountDir, mountDir),
+			},
+			AutoRemove: false,
+		},
+		nil,
+		nil,
+		"",
+	)
+	if err != nil {
+		return "", fmt.Errorf("create compose file helper: %w", err)
+	}
+	defer func() {
+		_ = Cli.ContainerRemove(Ctx(), helper.ID, container.RemoveOptions{Force: true})
+	}()
+
+	if err := Cli.ContainerStart(Ctx(), helper.ID, container.StartOptions{}); err != nil {
+		return "", fmt.Errorf("start compose file helper: %w", err)
+	}
+
+	waitCh, errCh := Cli.ContainerWait(Ctx(), helper.ID, container.WaitConditionNotRunning)
+	select {
+	case waitErr := <-errCh:
+		if waitErr != nil {
+			return "", fmt.Errorf("wait compose file helper: %w", waitErr)
+		}
+	case result := <-waitCh:
+		output, logsErr := readComposeFileHelperLogs(helper.ID)
+		if result.StatusCode != 0 {
+			if logsErr != nil {
+				return "", fmt.Errorf("compose file helper exited with status %d", result.StatusCode)
+			}
+			return "", fmt.Errorf("compose file helper exited with status %d: %s", result.StatusCode, strings.TrimSpace(output))
+		}
+		if logsErr != nil {
+			return "", logsErr
+		}
+		return output, nil
+	}
+
+	return "", nil
+}
+
+func readComposeFileHelperLogs(containerID string) (string, error) {
+	reader, err := Cli.ContainerLogs(Ctx(), containerID, container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+	})
+	if err != nil {
+		return "", err
+	}
+	defer reader.Close()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if _, err := stdcopy.StdCopy(&stdout, &stderr, reader); err != nil {
+		return "", err
+	}
+	if stderr.Len() > 0 && stdout.Len() == 0 {
+		return stderr.String(), nil
+	}
+	if stderr.Len() > 0 {
+		return stdout.String() + stderr.String(), nil
+	}
+	return stdout.String(), nil
 }
 
 func validateComposeYAML(content string) error {

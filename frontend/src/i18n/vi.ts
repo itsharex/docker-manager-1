@@ -7,7 +7,7 @@ const vi = {
     containers: 'Containers',
     images: 'Images',
     volumes: 'Volumes',
-    networks: 'Networks',
+    networks: 'Mạng',
     compose: 'Compose',
     settings: 'Cài đặt',
     opsPanel: 'Bảng điều khiển',

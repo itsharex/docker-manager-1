@@ -279,6 +279,12 @@ func ApplyAppUpdateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	targetTag, err := resolveDockerHubTag(namespace, repoPrefix, targetVersion)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+
 	appUpdateApplyState.Lock()
 	if appUpdateApplyState.inProgress {
 		appUpdateApplyState.Unlock()
@@ -297,7 +303,7 @@ func ApplyAppUpdateHandler(w http.ResponseWriter, r *http.Request) {
 			appUpdateApplyState.Unlock()
 		}()
 
-		if err := applySelfUpdate(namespace, repoPrefix, targetVersion); err != nil {
+		if err := applySelfUpdate(namespace, repoPrefix, targetVersion, targetTag); err != nil {
 			appUpdateLogState.append(fmt.Sprintf("[error] %v\n", err))
 			appUpdateLogState.finish(false, err.Error())
 			log.Printf("App update failed: %v", err)
@@ -373,6 +379,38 @@ func AppUpdateLogsWSHandler(w http.ResponseWriter, r *http.Request) {
 func checkDockerHubFrontendUpdate(currentVersion string, namespace string, repoPrefix string) (*appUpdateCheckResponse, error) {
 	imageName := fmt.Sprintf("%s/%s-frontend", namespace, repoPrefix)
 	updateURL := fmt.Sprintf("https://hub.docker.com/r/%s/%s-frontend/tags", url.PathEscape(namespace), url.PathEscape(repoPrefix))
+
+	payload, err := fetchDockerHubTags(namespace, repoPrefix)
+	if err != nil {
+		return nil, err
+	}
+
+	latest := pickLatestVersionTag(payload.Results)
+	if latest == nil {
+		return nil, fmt.Errorf("no version tags found for %s", imageName)
+	}
+
+	latestVersion := normalizeVersion(latest.Name)
+	hasUpdate := compareVersions(latestVersion, currentVersion) > 0
+
+	message := fmt.Sprintf("You are running the latest published frontend image.")
+	if hasUpdate {
+		message = fmt.Sprintf("Version %s is available for %s.", latestVersion, imageName)
+	}
+
+	return &appUpdateCheckResponse{
+		CurrentVersion: normalizeVersion(currentVersion),
+		LatestVersion:  latestVersion,
+		HasUpdate:      hasUpdate,
+		UpdateURL:      updateURL,
+		CheckedAt:      time.Now().UTC().Format(time.RFC3339),
+		ReleaseDate:    firstNonEmpty(latest.TagLastPushed, latest.LastUpdated),
+		Message:        message,
+		ImageName:      imageName,
+	}, nil
+}
+
+func fetchDockerHubTags(namespace string, repoPrefix string) (*dockerHubTagsResponse, error) {
 	endpoint := fmt.Sprintf(
 		"https://hub.docker.com/v2/namespaces/%s/repositories/%s-frontend/tags?page_size=100",
 		url.PathEscape(namespace),
@@ -400,30 +438,23 @@ func checkDockerHubFrontendUpdate(currentVersion string, namespace string, repoP
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		return nil, err
 	}
+	return &payload, nil
+}
 
-	latest := pickLatestVersionTag(payload.Results)
-	if latest == nil {
-		return nil, fmt.Errorf("no version tags found for %s", imageName)
+func resolveDockerHubTag(namespace string, repoPrefix string, requestedVersion string) (string, error) {
+	payload, err := fetchDockerHubTags(namespace, repoPrefix)
+	if err != nil {
+		return "", err
 	}
 
-	latestVersion := normalizeVersion(latest.Name)
-	hasUpdate := compareVersions(latestVersion, currentVersion) > 0
-
-	message := fmt.Sprintf("You are running the latest published frontend image.")
-	if hasUpdate {
-		message = fmt.Sprintf("Version %s is available for %s.", latestVersion, imageName)
+	requestedVersion = normalizeVersion(requestedVersion)
+	for _, tag := range payload.Results {
+		if normalizeVersion(tag.Name) == requestedVersion {
+			return strings.TrimSpace(tag.Name), nil
+		}
 	}
 
-	return &appUpdateCheckResponse{
-		CurrentVersion: normalizeVersion(currentVersion),
-		LatestVersion:  latestVersion,
-		HasUpdate:      hasUpdate,
-		UpdateURL:      updateURL,
-		CheckedAt:      time.Now().UTC().Format(time.RFC3339),
-		ReleaseDate:    firstNonEmpty(latest.TagLastPushed, latest.LastUpdated),
-		Message:        message,
-		ImageName:      imageName,
-	}, nil
+	return "", fmt.Errorf("could not find a Docker Hub tag matching version %s", requestedVersion)
 }
 
 func pickLatestVersionTag(tags []dockerHubTag) *dockerHubTag {
@@ -524,7 +555,7 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-func applySelfUpdate(namespace string, repoPrefix string, targetVersion string) error {
+func applySelfUpdate(namespace string, repoPrefix string, targetVersion string, targetTag string) error {
 	appUpdateLogState.append("[update] locating current Docker Manager container\n")
 	self, err := findSelfContainer()
 	if err != nil {
@@ -558,8 +589,12 @@ func applySelfUpdate(namespace string, repoPrefix string, targetVersion string) 
 	appUpdateLogState.append(fmt.Sprintf("[update] compose working directory: %s\n", workingDir))
 	appUpdateLogState.append(fmt.Sprintf("[update] compose files:\n- %s\n", strings.Join(resolvedFiles, "\n- ")))
 
-	backendImage := fmt.Sprintf("%s/%s-backend:%s", namespace, repoPrefix, targetVersion)
-	frontendImage := fmt.Sprintf("%s/%s-frontend:%s", namespace, repoPrefix, targetVersion)
+	if strings.TrimSpace(targetTag) == "" {
+		targetTag = targetVersion
+	}
+	backendImage := fmt.Sprintf("%s/%s-backend:%s", namespace, repoPrefix, targetTag)
+	frontendImage := fmt.Sprintf("%s/%s-frontend:%s", namespace, repoPrefix, targetTag)
+	appUpdateLogState.append(fmt.Sprintf("[update] resolved Docker tag -> %s\n", targetTag))
 	appUpdateLogState.append(fmt.Sprintf("[update] backend image -> %s\n", backendImage))
 	appUpdateLogState.append(fmt.Sprintf("[update] frontend image -> %s\n", frontendImage))
 

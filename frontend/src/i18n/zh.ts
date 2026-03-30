@@ -8,7 +8,7 @@ const zh = {
     images: '镜像',
     volumes: '卷',
     networks: '网络',
-    compose: 'Compose',
+    compose: 'Compose 文件',
     settings: '设置',
     opsPanel: '运维面板',
     shellDescription: '更锐利、更有结构感、装饰更少的 Docker 控制台。',
@@ -166,7 +166,7 @@ const zh = {
     all: '全部',
   },
   compose: {
-    title: 'Compose',
+    title: 'Compose 文件 ',
     workspaceAria: 'Compose 工作区视图',
     viewLogs: '查看日志',
     composeFiles: 'Compose 文件',

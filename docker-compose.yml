@@ -40,7 +40,6 @@ services:
     networks:
       - docker-manager-network
 
-    image: ngthanhvu/docker-manager-frontend:2.3
 volumes:
   backend_go_mod:
   backend_go_build:
