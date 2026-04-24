@@ -4,6 +4,8 @@ import { useI18n } from 'vue-i18n';
 import { feedback } from './ui/feedback';
 import { appSettings } from './ui/settings';
 import { updates } from './ui/updates';
+import { updateOverlay } from './ui/updateOverlay';
+import AppUpdateOverlay from './components/AppUpdateOverlay.vue';
 import UiFeedback from './components/UiFeedback.vue';
 
 const { t } = useI18n();
@@ -29,12 +31,20 @@ const maybePromptForAppUpdate = async () => {
   });
   if (!accepted) return;
 
+  updateOverlay.beginUpdate({
+    socketError: t('settings.updateConsoleSocketError'),
+    socketClosed: t('settings.updateConsoleSocketClosed'),
+    starting: t('settings.updateConsoleStarting'),
+  });
+
   try {
     const result = await updates.apply();
     feedback.info(result.message || t('settings.updateStarted'));
-    void updates.waitForAppReload();
-  } catch {
-    feedback.error(updates.state.message || t('common.actionFailed'));
+    updateOverlay.waitForReload({ reloadTimeout: t('settings.updateReloadTimeout') });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : (updates.state.message || t('common.actionFailed'));
+    updateOverlay.markFailed(message);
+    feedback.error(message);
   }
 };
 
@@ -45,5 +55,6 @@ onMounted(() => {
 
 <template>
   <router-view />
+  <AppUpdateOverlay />
   <UiFeedback />
 </template>
