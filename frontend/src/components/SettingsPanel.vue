@@ -297,7 +297,8 @@ watch(showUpdateConsole, (open) => {
         </p>
 
         <div class="mt-6 grid gap-3 sm:grid-cols-3">
-          <div v-for="card in summaryCards" :key="card.label" class="border p-4" style="border-color: var(--glass-border); background: var(--glass);">
+          <div v-for="card in summaryCards" :key="card.label" class="border p-4"
+            style="border-color: var(--glass-border); background: var(--glass);">
             <p class="text-[11px] uppercase tracking-[0.22em]" style="color: var(--text-muted);">{{ card.label }}</p>
             <p class="mt-2 text-2xl font-bold">{{ card.value }}</p>
           </div>
@@ -307,7 +308,8 @@ watch(showUpdateConsole, (open) => {
       <div class="glass-panel p-6">
         <div class="mb-4 flex items-center justify-between gap-4">
           <p class="section-heading mb-0">{{ t('settings.quickActions') }}</p>
-          <span class="border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]" style="border-color: var(--primary); color: var(--primary);">
+          <span class="border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]"
+            style="border-color: var(--primary); color: var(--primary);">
             {{ t('settings.statusLive') }}
           </span>
         </div>
@@ -347,7 +349,8 @@ watch(showUpdateConsole, (open) => {
               <option :value="5000">5s</option>
               <option :value="10000">10s</option>
             </select>
-            <small class="mt-2 block text-xs" style="color: var(--text-muted);">{{ t('settings.autoRefreshHelp') }}</small>
+            <small class="mt-2 block text-xs" style="color: var(--text-muted);">{{ t('settings.autoRefreshHelp')
+            }}</small>
           </label>
 
           <label class="settings-switch-row">
@@ -388,9 +391,11 @@ watch(showUpdateConsole, (open) => {
           </label>
 
           <label class="block lg:col-span-2">
-            <span class="mb-2 block text-sm font-semibold">{{ t('settings.fontScale') }} ({{ appSettings.ui.fontScale.toFixed(2) }})</span>
+            <span class="mb-2 block text-sm font-semibold">{{ t('settings.fontScale') }} ({{
+              appSettings.ui.fontScale.toFixed(2) }})</span>
             <div class="border px-4 py-4" style="border-color: var(--glass-border); background: var(--glass);">
-              <input v-model.number="appSettings.ui.fontScale" type="range" min="0.9" max="1.15" step="0.01" class="w-full accent-blue-600" />
+              <input v-model.number="appSettings.ui.fontScale" type="range" min="0.9" max="1.15" step="0.01"
+                class="w-full accent-blue-600" />
             </div>
           </label>
 
@@ -409,7 +414,8 @@ watch(showUpdateConsole, (open) => {
         <div class="grid gap-4 lg:grid-cols-2">
           <label class="block lg:col-span-2">
             <span class="mb-2 block text-sm font-semibold">{{ t('settings.dockerApiEndpoint') }}</span>
-            <input v-model.trim="appSettings.runtime.apiBaseUrl" type="text" placeholder="http://localhost:8080" class="app-input" />
+            <input v-model.trim="appSettings.runtime.apiBaseUrl" type="text" placeholder="http://localhost:8080"
+              class="app-input" />
             <small class="mt-2 block text-xs" style="color: var(--text-muted);">
               {{ t('settings.dockerApiHelp', { value: apiHint }) }}
             </small>
@@ -417,7 +423,8 @@ watch(showUpdateConsole, (open) => {
 
           <label class="block">
             <span class="mb-2 block text-sm font-semibold">{{ t('settings.defaultLogTail') }}</span>
-            <input v-model.number="appSettings.runtime.defaultLogTail" type="number" min="50" max="5000" step="50" class="app-input" />
+            <input v-model.number="appSettings.runtime.defaultLogTail" type="number" min="50" max="5000" step="50"
+              class="app-input" />
           </label>
 
           <label class="block">
@@ -439,7 +446,8 @@ watch(showUpdateConsole, (open) => {
 
           <label class="block">
             <span class="mb-2 block text-sm font-semibold">{{ t('settings.terminalFontSize') }}</span>
-            <input v-model.number="appSettings.runtime.terminalFontSize" type="number" min="11" max="20" step="1" class="app-input" />
+            <input v-model.number="appSettings.runtime.terminalFontSize" type="number" min="11" max="20" step="1"
+              class="app-input" />
           </label>
 
           <label class="block lg:col-span-2">
@@ -473,30 +481,37 @@ watch(showUpdateConsole, (open) => {
 
           <label class="block">
             <span class="mb-2 block text-sm font-semibold">{{ t('settings.dockerHubNamespace') }}</span>
-            <input v-model.trim="appSettings.updates.dockerHubNamespace" type="text" class="app-input" placeholder="ngthanhvu" />
+            <input v-model.trim="appSettings.updates.dockerHubNamespace" type="text" class="app-input"
+              placeholder="ngthanhvu" />
           </label>
 
           <label class="block">
             <span class="mb-2 block text-sm font-semibold">{{ t('settings.dockerHubRepoPrefix') }}</span>
-            <input v-model.trim="appSettings.updates.dockerHubRepoPrefix" type="text" class="app-input" placeholder="docker-manager" />
+            <input v-model.trim="appSettings.updates.dockerHubRepoPrefix" type="text" class="app-input"
+              placeholder="docker-manager" />
           </label>
 
           <div class="border p-4 lg:col-span-2" style="border-color: var(--glass-border); background: var(--glass);">
             <div class="grid gap-3 sm:grid-cols-2">
               <div>
-                <p class="text-[11px] uppercase tracking-[0.22em]" style="color: var(--text-muted);">{{ t('settings.currentVersion') }}</p>
+                <p class="text-[11px] uppercase tracking-[0.22em]" style="color: var(--text-muted);">{{
+                  t('settings.currentVersion') }}</p>
                 <p class="mt-2 text-xl font-bold">v{{ updateState.currentVersion }}</p>
               </div>
               <div>
-                <p class="text-[11px] uppercase tracking-[0.22em]" style="color: var(--text-muted);">{{ t('settings.latestVersion') }}</p>
-                <p class="mt-2 text-xl font-bold">{{ updateState.latestVersion ? `v${updateState.latestVersion}` : t('common.notAvailable') }}</p>
+                <p class="text-[11px] uppercase tracking-[0.22em]" style="color: var(--text-muted);">{{
+                  t('settings.latestVersion') }}</p>
+                <p class="mt-2 text-xl font-bold">{{ updateState.latestVersion ? `${updateState.latestVersion}` :
+                  t('common.notAvailable') }}</p>
               </div>
               <div>
-                <p class="text-[11px] uppercase tracking-[0.22em]" style="color: var(--text-muted);">{{ t('settings.lastChecked') }}</p>
+                <p class="text-[11px] uppercase tracking-[0.22em]" style="color: var(--text-muted);">{{
+                  t('settings.lastChecked') }}</p>
                 <p class="mt-2 text-sm font-medium">{{ checkedAtLabel }}</p>
               </div>
               <div>
-                <p class="text-[11px] uppercase tracking-[0.22em]" style="color: var(--text-muted);">{{ t('settings.latestPublished') }}</p>
+                <p class="text-[11px] uppercase tracking-[0.22em]" style="color: var(--text-muted);">{{
+                  t('settings.latestPublished') }}</p>
                 <p class="mt-2 text-sm font-medium">{{ releaseDateLabel }}</p>
               </div>
             </div>
@@ -507,31 +522,21 @@ watch(showUpdateConsole, (open) => {
           </div>
 
           <div class="flex flex-wrap gap-3 lg:col-span-2">
-            <button class="btn btn-ghost" type="button" :disabled="updateState.status === 'checking'" @click="checkUpdates()">
+            <button class="btn btn-ghost" type="button" :disabled="updateState.status === 'checking'"
+              @click="checkUpdates()">
               {{ updateState.status === 'checking' ? t('settings.updateChecking') : t('settings.checkUpdates') }}
             </button>
-            <button
-              class="btn btn-primary"
-              type="button"
-              :disabled="updateState.status !== 'available' || updateState.applying"
-              @click="applyUpdate"
-            >
+            <button class="btn btn-primary" type="button"
+              :disabled="updateState.status !== 'available' || updateState.applying" @click="applyUpdate">
               {{ t('settings.updateNow') }}
             </button>
-            <button
-              class="btn btn-ghost"
-              type="button"
+            <button class="btn btn-ghost" type="button"
               :disabled="updateState.status === 'checking' || (!updateState.applying && !updateConsoleOutput)"
-              @click="openUpdateConsole"
-            >
+              @click="openUpdateConsole">
               {{ t('settings.openUpdateConsole') }}
             </button>
-            <button
-              class="btn btn-ghost"
-              type="button"
-              :disabled="updateState.status === 'checking'"
-              @click="openUpdatePage"
-            >
+            <button class="btn btn-ghost" type="button" :disabled="updateState.status === 'checking'"
+              @click="openUpdatePage">
               {{ t('settings.openUpdatePage') }}
             </button>
           </div>
@@ -543,13 +548,15 @@ watch(showUpdateConsole, (open) => {
         <div class="grid gap-4 lg:grid-cols-2">
           <label class="block lg:col-span-2">
             <span class="mb-2 block text-sm font-semibold">{{ t('settings.toastDuration') }}</span>
-            <input v-model.number="appSettings.notifications.toastDurationMs" type="number" min="1000" max="10000" step="100" class="app-input" />
+            <input v-model.number="appSettings.notifications.toastDurationMs" type="number" min="1000" max="10000"
+              step="100" class="app-input" />
           </label>
 
           <label class="settings-switch-row">
             <span class="text-sm font-semibold">{{ t('settings.showSuccessToasts') }}</span>
             <span class="settings-switch">
-              <input v-model="appSettings.notifications.showSuccessToast" type="checkbox" class="settings-switch-input" />
+              <input v-model="appSettings.notifications.showSuccessToast" type="checkbox"
+                class="settings-switch-input" />
               <span class="settings-switch-track"></span>
             </span>
           </label>
@@ -557,7 +564,8 @@ watch(showUpdateConsole, (open) => {
           <label class="settings-switch-row">
             <span class="text-sm font-semibold">{{ t('settings.showDetailedErrors') }}</span>
             <span class="settings-switch">
-              <input v-model="appSettings.notifications.showDetailedErrors" type="checkbox" class="settings-switch-input" />
+              <input v-model="appSettings.notifications.showDetailedErrors" type="checkbox"
+                class="settings-switch-input" />
               <span class="settings-switch-track"></span>
             </span>
           </label>
@@ -570,34 +578,37 @@ watch(showUpdateConsole, (open) => {
           <label class="settings-switch-row">
             <span class="text-sm font-semibold">{{ t('settings.requireDeleteTyping') }}</span>
             <span class="settings-switch">
-              <input v-model="appSettings.safety.softDeleteRequireTyping" type="checkbox" class="settings-switch-input" />
+              <input v-model="appSettings.safety.softDeleteRequireTyping" type="checkbox"
+                class="settings-switch-input" />
               <span class="settings-switch-track"></span>
             </span>
           </label>
 
           <label class="block">
             <span class="mb-2 block text-sm font-semibold">{{ t('settings.protectedResources') }}</span>
-            <input
-              v-model="appSettings.safety.protectedResources"
-              type="text"
-              :placeholder="t('settings.protectedResourcesPlaceholder')"
-              class="app-input"
-            />
+            <input v-model="appSettings.safety.protectedResources" type="text"
+              :placeholder="t('settings.protectedResourcesPlaceholder')" class="app-input" />
           </label>
         </div>
       </section>
 
       <section class="glass-panel p-5">
         <p class="section-heading">{{ t('settings.about') }}</p>
-        <div class="grid gap-px border text-sm sm:grid-cols-[220px_minmax(0,1fr)]" style="border-color: var(--glass-border); background: var(--glass-border);">
-          <div class="px-4 py-3 font-semibold" style="background: var(--table-header-bg);">{{ t('settings.appVersion') }}</div>
+        <div class="grid gap-px border text-sm sm:grid-cols-[220px_minmax(0,1fr)]"
+          style="border-color: var(--glass-border); background: var(--glass-border);">
+          <div class="px-4 py-3 font-semibold" style="background: var(--table-header-bg);">{{ t('settings.appVersion')
+          }}</div>
           <div class="px-4 py-3" style="background: var(--bg-card);">v{{ appSettings.about.appVersion }}</div>
-          <div class="px-4 py-3 font-semibold" style="background: var(--table-header-bg);">{{ t('settings.buildDate') }}</div>
+          <div class="px-4 py-3 font-semibold" style="background: var(--table-header-bg);">{{ t('settings.buildDate') }}
+          </div>
           <div class="px-4 py-3" style="background: var(--bg-card);">{{ appSettings.about.buildDate }}</div>
-          <div class="px-4 py-3 font-semibold" style="background: var(--table-header-bg);">{{ t('settings.engine') }}</div>
-          <div class="px-4 py-3" style="background: var(--bg-card);">{{ props.systemInfo?.ServerVersion || t('common.notAvailable') }}</div>
+          <div class="px-4 py-3 font-semibold" style="background: var(--table-header-bg);">{{ t('settings.engine') }}
+          </div>
+          <div class="px-4 py-3" style="background: var(--bg-card);">{{ props.systemInfo?.ServerVersion ||
+            t('common.notAvailable') }}</div>
           <div class="px-4 py-3 font-semibold" style="background: var(--table-header-bg);">{{ t('settings.os') }}</div>
-          <div class="px-4 py-3" style="background: var(--bg-card);">{{ props.systemInfo?.OperatingSystem || t('common.notAvailable') }}</div>
+          <div class="px-4 py-3" style="background: var(--bg-card);">{{ props.systemInfo?.OperatingSystem ||
+            t('common.notAvailable') }}</div>
         </div>
       </section>
     </div>
@@ -610,7 +621,8 @@ watch(showUpdateConsole, (open) => {
             <h3 class="update-console-title">{{ updateProgress.title }}</h3>
             <p class="update-progress-detail">{{ updateProgress.detail }}</p>
           </div>
-          <button class="btn btn-ghost" type="button" :disabled="updateState.applying || waitingForReload" @click="closeUpdateConsole">
+          <button class="btn btn-ghost" type="button" :disabled="updateState.applying || waitingForReload"
+            @click="closeUpdateConsole">
             {{ t('common.close') }}
           </button>
         </div>
@@ -637,7 +649,8 @@ watch(showUpdateConsole, (open) => {
           <div class="update-log-header">
             <span>{{ t('settings.updateLogs') }}</span>
           </div>
-          <pre ref="updateConsoleEl" class="update-console-output" @scroll="handleUpdateConsoleScroll">{{ updateConsoleOutput }}</pre>
+          <pre ref="updateConsoleEl" class="update-console-output"
+            @scroll="handleUpdateConsoleScroll">{{ updateConsoleOutput }}</pre>
         </div>
       </div>
     </div>
@@ -695,16 +708,16 @@ watch(showUpdateConsole, (open) => {
   transition: transform 0.18s ease;
 }
 
-.settings-switch-input:checked + .settings-switch-track {
+.settings-switch-input:checked+.settings-switch-track {
   background: color-mix(in srgb, var(--primary) 70%, transparent);
   border-color: color-mix(in srgb, var(--primary) 72%, transparent);
 }
 
-.settings-switch-input:checked + .settings-switch-track::after {
+.settings-switch-input:checked+.settings-switch-track::after {
   transform: translateX(22px);
 }
 
-.settings-switch-input:focus-visible + .settings-switch-track {
+.settings-switch-input:focus-visible+.settings-switch-track {
   outline: 2px solid color-mix(in srgb, var(--primary) 55%, transparent);
   outline-offset: 2px;
 }
